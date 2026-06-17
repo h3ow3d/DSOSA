@@ -68,12 +68,64 @@ func (s *JSONStore) ReadCurrentCatalogue() (*CatalogueRecord, error) {
 	return &items[0], nil
 }
 
+func (s *JSONStore) ReadCatalogueByHash(sha256 string) (*CatalogueRecord, error) {
+	items, err := s.ListCatalogueVersions()
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if item.SHA256 == sha256 {
+			return &item, nil
+		}
+	}
+	return nil, errors.New("catalogue not found")
+}
+
+// Projects
+
+func (s *JSONStore) SaveProject(p Project) error {
+	return writeJSON(filepath.Join(s.projectsDir, p.ID+".json"), p)
+}
+
+func (s *JSONStore) GetProject(id string) (*Project, error) {
+	var p Project
+	if err := readJSON(filepath.Join(s.projectsDir, id+".json"), &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 func (s *JSONStore) ListProjects() []Project {
 	return readCollection[Project](s.projectsDir)
 }
 
+// Assessments
+
+func (s *JSONStore) SaveAssessment(a Assessment) error {
+	return writeJSON(filepath.Join(s.assessDir, a.ID+".json"), a)
+}
+
+func (s *JSONStore) GetAssessment(id string) (*Assessment, error) {
+	var a Assessment
+	if err := readJSON(filepath.Join(s.assessDir, id+".json"), &a); err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
 func (s *JSONStore) ListAssessments() []Assessment {
 	return readCollection[Assessment](s.assessDir)
+}
+
+func (s *JSONStore) ListAssessmentsByProject(projectID string) []Assessment {
+	all := s.ListAssessments()
+	out := make([]Assessment, 0)
+	for _, a := range all {
+		if a.ProjectID == projectID {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 func (s *JSONStore) ListImprovements() []Improvement {
@@ -151,5 +203,3 @@ func readCollection[T any](dir string) []T {
 	}
 	return out
 }
-
-var _ = errors.New

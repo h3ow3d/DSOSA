@@ -1,21 +1,97 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Results · DSOVS Assessment Tool</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="header">
-    <h1>OWASP DSOVS Assessment Tool</h1>
-    <nav><a href="/dashboard">Dashboard</a> <a href="/projects">Projects</a></nav>
-  </header>
-  <main class="container">
+{{define "content"}}
+  <div class="page-header">
+    <h2>Results: {{.Assessment.Name}}</h2>
+    <div class="btn-group">
+      <a href="/assessments/{{.Assessment.ID}}" class="btn btn-ghost">← Score</a>
+      <a href="/assessments/{{.Assessment.ID}}/report" class="btn">📄 Report</a>
+    </div>
+  </div>
+
+  {{if not .HasScores}}
+  <div class="empty-state">
+    <p>No scores recorded yet.</p>
+    <a href="/assessments/{{.Assessment.ID}}" class="btn">Score controls</a>
+  </div>
+  {{else}}
+
+  <div class="grid grid-3">
+    <article class="metric">
+      <h3>Overall Maturity</h3>
+      <p class="metric-val">{{.OverallCurrent}} <span class="metric-max">/ 3</span></p>
+      <p class="metric-sub">Target: {{.OverallTarget}} / 3</p>
+    </article>
+    <article class="metric">
+      <h3>Completion</h3>
+      <p class="metric-val">{{.CompletionPct}}%</p>
+    </article>
+    <article class="metric">
+      <h3>Phases Assessed</h3>
+      <p class="metric-val">{{len .PhaseResults}}</p>
+    </article>
+  </div>
+
+  <div class="results-layout">
     <section class="card">
-      <h2>Results</h2>
-      <p>Results page placeholder for DSOVS maturity workflows.</p>
+      <h3>Radar Chart</h3>
+      <div class="chart-wrap">{{.RadarSVG}}</div>
     </section>
-  </main>
-</body>
-</html>
+
+    <section class="card">
+      <h3>Phase Scores</h3>
+      <table class="data-table">
+        <thead>
+          <tr><th>Phase</th><th>Current</th><th>Target</th><th>Gap</th></tr>
+        </thead>
+        <tbody>
+          {{range .PhaseResults}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td>{{.Current}}</td>
+            <td>{{.Target}}</td>
+            <td{{if gt .Gap 0.0}} class="gap-high"{{end}}>{{.Gap}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  {{if .TopGaps}}
+  <section class="card">
+    <h3>Top Maturity Gaps</h3>
+    <table class="data-table">
+      <thead><tr><th>Control</th><th>Title</th><th>Gap</th><th>Priority</th></tr></thead>
+      <tbody>
+        {{range .TopGaps}}
+        <tr>
+          <td><code>{{.ControlID}}</code></td>
+          <td>{{.Title}}</td>
+          <td class="gap-high">{{.Gap}}</td>
+          <td>{{if .Priority}}{{.Priority}}{{else}}—{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </section>
+  {{end}}
+
+  {{if .MissingEvidence}}
+  <section class="card">
+    <h3>Controls Missing Evidence</h3>
+    <table class="data-table">
+      <thead><tr><th>Control</th><th>Title</th><th>Current</th></tr></thead>
+      <tbody>
+        {{range .MissingEvidence}}
+        <tr>
+          <td><code>{{.Control.ID}}</code></td>
+          <td>{{.Control.Title}}</td>
+          <td>{{.Score.Current}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </section>
+  {{end}}
+
+  {{end}}
+{{end}}

@@ -1,21 +1,43 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Project · DSOVS Assessment Tool</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="header">
-    <h1>OWASP DSOVS Assessment Tool</h1>
-    <nav><a href="/dashboard">Dashboard</a> <a href="/projects">Projects</a></nav>
-  </header>
-  <main class="container">
-    <section class="card">
-      <h2>Project</h2>
-      <p>Project page placeholder for DSOVS maturity workflows.</p>
-    </section>
-  </main>
-</body>
-</html>
+{{define "content"}}
+  <div class="page-header">
+    <h2>{{.Project.Name}}</h2>
+    <a href="/projects/{{.Project.ID}}/assessments/new" class="btn">+ New Assessment</a>
+  </div>
+
+  <div class="card">
+    <table class="info-table">
+      {{if .Project.ClientName}}<tr><th>Client</th><td>{{.Project.ClientName}}</td></tr>{{end}}
+      {{if .Project.Owner}}<tr><th>Owner</th><td>{{.Project.Owner}}</td></tr>{{end}}
+      {{if .Project.Description}}<tr><th>Description</th><td>{{.Project.Description}}</td></tr>{{end}}
+      <tr><th>Created</th><td>{{fmtTime .Project.CreatedAt}}</td></tr>
+      <tr><th>Updated</th><td>{{fmtTime .Project.UpdatedAt}}</td></tr>
+    </table>
+  </div>
+
+  <section>
+    <h3>Assessments</h3>
+    {{if .Assessments}}
+    <div class="card-list">
+      {{range .Assessments}}
+      <article class="card card-row">
+        <div class="card-main">
+          <a href="/assessments/{{.ID}}" class="card-title">{{.Name}}</a>
+          {{if .Assessor}}<span class="card-sub">Assessor: {{.Assessor}}</span>{{end}}
+          {{if .AssessmentDate}}<span class="card-sub">Date: {{.AssessmentDate}}</span>{{end}}
+          {{if .StandardVersion}}<span class="tag">DSOVS {{.StandardVersion}}</span>{{end}}
+        </div>
+        <div class="card-meta">
+          <a href="/assessments/{{.ID}}" class="btn btn-sm">Score →</a>
+          <a href="/assessments/{{.ID}}/results" class="btn btn-sm btn-ghost">Results</a>
+        </div>
+      </article>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="empty-state">
+      <p>No assessments for this project yet.</p>
+      <a href="/projects/{{.Project.ID}}/assessments/new" class="btn">Create first assessment</a>
+    </div>
+    {{end}}
+  </section>
+{{end}}

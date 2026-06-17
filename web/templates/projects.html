@@ -1,25 +1,30 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{.Title}} · DSOVS Assessment Tool</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="header">
-    <h1>OWASP DSOVS Assessment Tool</h1>
-    <nav><a href="/dashboard">Dashboard</a> <a href="/projects">Projects</a></nav>
-  </header>
-  <main class="container">
-    <section class="card">
-      <h2>Projects</h2>
-      {{if .Projects}}
-      <ul>{{range .Projects}}<li>{{.Name}} — updated {{.UpdatedAt}}</li>{{end}}</ul>
-      {{else}}
-      <p>No projects saved yet. Project management can be added on top of the file store.</p>
-      {{end}}
-    </section>
-  </main>
-</body>
-</html>
+{{define "content"}}
+  <div class="page-header">
+    <h2>Projects</h2>
+    <a href="/projects/new" class="btn">+ New Project</a>
+  </div>
+
+  {{if .Projects}}
+  <div class="card-list">
+    {{range .Projects}}
+    <article class="card card-row">
+      <div class="card-main">
+        <a href="/projects/{{.ID}}" class="card-title">{{.Name}}</a>
+        {{if .ClientName}}<span class="card-sub">{{.ClientName}}</span>{{end}}
+        {{if .Owner}}<span class="card-sub">Owner: {{.Owner}}</span>{{end}}
+        {{if .Description}}<p class="card-desc">{{.Description}}</p>{{end}}
+      </div>
+      <div class="card-meta">
+        <span class="tag">Updated {{fmtDate .UpdatedAt}}</span>
+        <a href="/projects/{{.ID}}" class="btn btn-sm">Open →</a>
+      </div>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="empty-state">
+    <p>No projects yet.</p>
+    <a href="/projects/new" class="btn">Create your first project</a>
+  </div>
+  {{end}}
+{{end}}
