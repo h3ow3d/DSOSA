@@ -71,6 +71,14 @@ docker compose up --build
 
 Then open `http://localhost:8080`.
 
+## Testing the UI
+
+- Run all tests: `go test ./...`
+- Run the app locally and open `http://localhost:8080`
+- Manually test keyboard navigation (including skip link and focus order)
+- Manually test browser print and Save as PDF from a report page
+- Manually verify pages remain readable and usable with JavaScript disabled
+
 ## Dashboard sync flow
 
 1. Open Dashboard.

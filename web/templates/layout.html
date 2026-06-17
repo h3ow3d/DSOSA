@@ -3,21 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{.Title}} · DSOVS Assessment Tool</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <title>{{.Title}} · Secure Delivery Compass</title>
+  <link rel="stylesheet" href="/static/wcag-lite.css">
 </head>
 <body>
+  <a href="#main-content" class="wcag-skip-link">Skip to main content</a>
   <header class="header">
-    <a href="/dashboard" class="header-brand">OWASP DSOVS Assessment Tool</a>
+    <a href="/dashboard" class="header-brand">Secure Delivery Compass</a>
     <nav class="nav">
       <a href="/dashboard" class="nav-link{{if eq .Nav "dashboard"}} active{{end}}">Dashboard</a>
+      <a href="/catalogue" class="nav-link{{if eq .Nav "catalogue"}} active{{end}}">Catalogue</a>
       <a href="/projects" class="nav-link{{if eq .Nav "projects"}} active{{end}}">Projects</a>
       <a href="/assessments" class="nav-link{{if eq .Nav "assessments"}} active{{end}}">Assessments</a>
+      <a href="/reports" class="nav-link{{if eq .Nav "reports"}} active{{end}}">Reports</a>
     </nav>
   </header>
-  <main class="container">
+  <main id="main-content" class="container" tabindex="-1">
     {{block "content" .}}{{end}}
   </main>
-  <script src="/static/app.js"></script>
+  <footer class="footer">
+    <div class="container">Secure Delivery Compass</div>
+  </footer>
+  <script src="/static/wcag-lite.js"></script>
 </body>
 </html>
