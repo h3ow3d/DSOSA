@@ -1,0 +1,37 @@
+{{define "content"}}
+  <div class="page-header">
+    <h2>New Assessment</h2>
+    <a href="/projects/{{.Project.ID}}" class="btn btn-ghost">← Back to {{.Project.Name}}</a>
+  </div>
+
+  {{if not .Catalogues}}
+  <div class="alert alert-warn">
+    No catalogue synced yet. <a href="/dashboard">Sync the catalogue</a> before creating an assessment.
+  </div>
+  {{end}}
+
+  <div class="card">
+    <form method="post" action="/projects/{{.Project.ID}}/assessments" class="form">
+      <div class="form-row">
+        <label for="name">Assessment Name <span class="required">*</span></label>
+        <input type="text" id="name" name="name" required placeholder="e.g. Q2 2025 Security Assessment" autofocus>
+      </div>
+      <div class="form-row">
+        <label for="assessor">Assessor</label>
+        <input type="text" id="assessor" name="assessor" placeholder="e.g. Jane Smith">
+      </div>
+      <div class="form-row">
+        <label for="assessment_date">Assessment Date</label>
+        <input type="date" id="assessment_date" name="assessment_date">
+      </div>
+      <div class="form-row">
+        <label for="scope">Scope</label>
+        <textarea id="scope" name="scope" rows="3" placeholder="Describe what is in scope for this assessment"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn"{{if not .Catalogues}} disabled title="Sync catalogue first"{{end}}>Create Assessment</button>
+        <a href="/projects/{{.Project.ID}}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+{{end}}

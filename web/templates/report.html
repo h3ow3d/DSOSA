@@ -1,21 +1,126 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Report · DSOVS Assessment Tool</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="header">
-    <h1>OWASP DSOVS Assessment Tool</h1>
-    <nav><a href="/dashboard">Dashboard</a> <a href="/projects">Projects</a></nav>
-  </header>
-  <main class="container">
-    <section class="card">
-      <h2>Report</h2>
-      <p>Report page placeholder for DSOVS maturity workflows.</p>
+{{define "content"}}
+  <div class="page-header no-print">
+    <h2>Report: {{.Assessment.Name}}</h2>
+    <div class="btn-group">
+      <a href="/assessments/{{.Assessment.ID}}/results" class="btn btn-ghost no-print">← Results</a>
+      <button onclick="window.print()" class="btn no-print">🖨 Print / Save as PDF</button>
+    </div>
+  </div>
+
+  <div class="report">
+    <header class="report-header">
+      <h1>DevSecOps Verification Standard (DSOVS)</h1>
+      <h2>Security Maturity Assessment Report</h2>
+      <p class="report-meta">Generated: {{.PrintedAt}}</p>
+    </header>
+
+    <section class="report-section">
+      <h3>Project Information</h3>
+      <table class="info-table">
+        {{if .Project}}
+        <tr><th>Project</th><td>{{.Project.Name}}</td></tr>
+        {{if .Project.ClientName}}<tr><th>Client</th><td>{{.Project.ClientName}}</td></tr>{{end}}
+        {{if .Project.Owner}}<tr><th>Owner</th><td>{{.Project.Owner}}</td></tr>{{end}}
+        {{if .Project.Description}}<tr><th>Description</th><td>{{.Project.Description}}</td></tr>{{end}}
+        {{end}}
+      </table>
     </section>
-  </main>
-</body>
-</html>
+
+    <section class="report-section">
+      <h3>Assessment Details</h3>
+      <table class="info-table">
+        <tr><th>Assessment</th><td>{{.Assessment.Name}}</td></tr>
+        {{if .Assessment.Assessor}}<tr><th>Assessor</th><td>{{.Assessment.Assessor}}</td></tr>{{end}}
+        {{if .Assessment.AssessmentDate}}<tr><th>Date</th><td>{{.Assessment.AssessmentDate}}</td></tr>{{end}}
+        {{if .Assessment.StandardVersion}}<tr><th>Standard</th><td>DSOVS {{.Assessment.StandardVersion}}</td></tr>{{end}}
+        {{if .Assessment.Scope}}<tr><th>Scope</th><td>{{.Assessment.Scope}}</td></tr>{{end}}
+      </table>
+    </section>
+
+    <section class="report-section">
+      <h3>Executive Summary</h3>
+      <div class="grid grid-3">
+        <article class="metric">
+          <h4>Overall Maturity</h4>
+          <p class="metric-val">{{.OverallCurrent}} <span class="metric-max">/ 3</span></p>
+          <p class="metric-sub">Target: {{.OverallTarget}} / 3</p>
+        </article>
+        <article class="metric">
+          <h4>Phases</h4>
+          <p class="metric-val">{{len .PhaseResults}}</p>
+        </article>
+        <article class="metric">
+          <h4>Controls Scored</h4>
+          <p class="metric-val">{{len .Assessment.Scores}}</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <h3>Maturity Radar Chart</h3>
+      <div class="chart-wrap">{{.RadarSVG}}</div>
+    </section>
+
+    <section class="report-section">
+      <h3>Phase Score Summary</h3>
+      <table class="data-table">
+        <thead><tr><th>Phase</th><th>Current</th><th>Target</th><th>Gap</th></tr></thead>
+        <tbody>
+          {{range .PhaseResults}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td>{{.Current}}</td>
+            <td>{{.Target}}</td>
+            <td{{if gt .Gap 0.0}} class="gap-high"{{end}}>{{.Gap}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </section>
+
+    {{if .TopGaps}}
+    <section class="report-section">
+      <h3>Top Maturity Gaps</h3>
+      <table class="data-table">
+        <thead><tr><th>Control</th><th>Title</th><th>Gap</th><th>Priority</th></tr></thead>
+        <tbody>
+          {{range .TopGaps}}
+          <tr>
+            <td><code>{{.ControlID}}</code></td>
+            <td>{{.Title}}</td>
+            <td class="gap-high">{{.Gap}}</td>
+            <td>{{if .Priority}}{{.Priority}}{{else}}—{{end}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </section>
+    {{end}}
+
+    <section class="report-section">
+      <h3>Full Control Matrix</h3>
+      {{range .Phases}}
+      <h4>{{.Phase.Name}}</h4>
+      <table class="data-table control-matrix">
+        <thead>
+          <tr><th>ID</th><th>Title</th><th>Current</th><th>Target</th><th>N/A</th><th>Priority</th><th>Evidence</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {{range .Controls}}
+          <tr{{if .Score.NotApplicable}} class="na-row"{{end}}>
+            <td><code>{{.Control.ID}}</code></td>
+            <td>{{.Control.Title}}</td>
+            <td>{{.Score.Current}}</td>
+            <td>{{.Score.Target}}</td>
+            <td>{{if .Score.NotApplicable}}Yes{{end}}</td>
+            <td>{{if .Score.Priority}}{{.Score.Priority}}{{else}}—{{end}}</td>
+            <td class="notes-cell">{{.Score.Evidence}}</td>
+            <td class="notes-cell">{{.Score.ActionNotes}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{end}}
+    </section>
+  </div>
+{{end}}

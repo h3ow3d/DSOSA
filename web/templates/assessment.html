@@ -1,21 +1,103 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Assessment · DSOVS Assessment Tool</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="header">
-    <h1>OWASP DSOVS Assessment Tool</h1>
-    <nav><a href="/dashboard">Dashboard</a> <a href="/projects">Projects</a></nav>
-  </header>
-  <main class="container">
-    <section class="card">
-      <h2>Assessment</h2>
-      <p>Assessment page placeholder for DSOVS maturity workflows.</p>
+{{define "content"}}
+  <div class="page-header">
+    <h2>{{.Assessment.Name}}</h2>
+    <div class="btn-group">
+      {{if .Project}}<a href="/projects/{{.Project.ID}}" class="btn btn-ghost">← {{.Project.Name}}</a>{{end}}
+      <a href="/assessments/{{.Assessment.ID}}/results" class="btn btn-ghost">Results</a>
+      <a href="/assessments/{{.Assessment.ID}}/report" class="btn btn-ghost">Report</a>
+    </div>
+  </div>
+
+  <div class="card info-row">
+    {{if .Assessment.Assessor}}<span><strong>Assessor:</strong> {{.Assessment.Assessor}}</span>{{end}}
+    {{if .Assessment.AssessmentDate}}<span><strong>Date:</strong> {{.Assessment.AssessmentDate}}</span>{{end}}
+    {{if .Assessment.StandardVersion}}<span class="tag">DSOVS {{.Assessment.StandardVersion}}</span>{{end}}
+    {{if .Assessment.Scope}}<span><strong>Scope:</strong> {{.Assessment.Scope}}</span>{{end}}
+    <span class="tag{{if .ScoreCount}} tag-ok{{end}}">{{.ScoreCount}} / {{.ControlCount}} scored</span>
+  </div>
+
+  {{if not .HasCatalogue}}
+  <div class="alert alert-warn">No catalogue synced. <a href="/dashboard">Sync the catalogue</a> to score controls.</div>
+  {{else if not .Phases}}
+  <div class="alert alert-warn">Catalogue loaded but no phases could be parsed. Try re-syncing.</div>
+  {{else}}
+
+  <div id="save-status" class="save-status" aria-live="polite"></div>
+
+  <form id="score-form">
+    {{range .Phases}}
+    <section class="phase-section">
+      <h3 class="phase-title">{{.Phase.Name}}</h3>
+      {{range .Controls}}
+      <div class="control-row" data-cid="{{.Control.ID}}">
+        <div class="control-header">
+          <span class="control-id">{{.Control.ID}}</span>
+          <strong class="control-title">{{.Control.Title}}</strong>
+          {{if .Control.DocURL}}<a href="{{.Control.DocURL}}" target="_blank" rel="noopener" class="doc-link" title="View documentation">↗</a>{{end}}
+        </div>
+        {{if .Control.Summary}}<p class="control-summary">{{.Control.Summary}}</p>{{end}}
+
+        {{if or .Control.Level0 .Control.Level1 .Control.Level2 .Control.Level3}}
+        <details class="level-details">
+          <summary>Maturity level descriptions</summary>
+          <dl class="level-defs">
+            {{if .Control.Level0}}<dt>L0</dt><dd>{{.Control.Level0}}</dd>{{end}}
+            {{if .Control.Level1}}<dt>L1</dt><dd>{{.Control.Level1}}</dd>{{end}}
+            {{if .Control.Level2}}<dt>L2</dt><dd>{{.Control.Level2}}</dd>{{end}}
+            {{if .Control.Level3}}<dt>L3</dt><dd>{{.Control.Level3}}</dd>{{end}}
+          </dl>
+        </details>
+        {{end}}
+
+        <div class="score-fields">
+          {{$sc := .Score}}
+          <label class="score-label">
+            Current level
+            <select class="current-select">
+              {{range $.Levels}}<option value="{{.}}"{{if eq . $sc.Current}} selected{{end}}>{{.}}</option>{{end}}
+            </select>
+          </label>
+          <label class="score-label">
+            Target level
+            <select class="target-select">
+              {{range $.Levels}}<option value="{{.}}"{{if eq . $sc.Target}} selected{{end}}>{{.}}</option>{{end}}
+            </select>
+          </label>
+          <label class="score-label na-label">
+            <input type="checkbox" class="na-check"{{if $sc.NotApplicable}} checked{{end}}> N/A
+          </label>
+          <label class="score-label">
+            Priority
+            <select class="priority-select">
+              {{range $.Priorities}}<option value="{{.}}"{{if eq . $sc.Priority}} selected{{end}}>{{if .}}{{.}}{{else}}—{{end}}</option>{{end}}
+            </select>
+          </label>
+          <label class="score-label">
+            Confidence
+            <select class="confidence-select">
+              {{range $.Confidences}}<option value="{{.}}"{{if eq . $sc.Confidence}} selected{{end}}>{{if .}}{{.}}{{else}}—{{end}}</option>{{end}}
+            </select>
+          </label>
+        </div>
+        <div class="note-fields">
+          <label class="note-label">
+            Evidence
+            <textarea class="evidence-area" rows="2" placeholder="Evidence for current score…">{{$sc.Evidence}}</textarea>
+          </label>
+          <label class="note-label">
+            Action notes
+            <textarea class="action-area" rows="2" placeholder="Actions to reach target…">{{$sc.ActionNotes}}</textarea>
+          </label>
+        </div>
+      </div>
+      {{end}}
     </section>
-  </main>
-</body>
-</html>
+    {{end}}
+
+    <div class="sticky-save">
+      <button type="submit" class="btn btn-lg">💾 Save All Scores</button>
+    </div>
+  </form>
+
+  {{end}}
+{{end}}

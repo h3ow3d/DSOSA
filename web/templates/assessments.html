@@ -1,0 +1,33 @@
+{{define "content"}}
+  <div class="page-header">
+    <h2>Assessments</h2>
+  </div>
+
+  {{if .Assessments}}
+  <div class="card-list">
+    {{range .Assessments}}
+    {{$proj := index $.Projects .ProjectID}}
+    <article class="card card-row">
+      <div class="card-main">
+        <a href="/assessments/{{.ID}}" class="card-title">{{.Name}}</a>
+        {{if $proj}}<span class="card-sub">Project: <a href="/projects/{{$proj.ID}}">{{$proj.Name}}</a></span>{{end}}
+        {{if .Assessor}}<span class="card-sub">Assessor: {{.Assessor}}</span>{{end}}
+        {{if .AssessmentDate}}<span class="card-sub">Date: {{.AssessmentDate}}</span>{{end}}
+        {{if .StandardVersion}}<span class="tag">DSOVS {{.StandardVersion}}</span>{{end}}
+        {{if .Scores}}<span class="tag tag-ok">{{len .Scores}} controls scored</span>{{end}}
+      </div>
+      <div class="card-meta">
+        <a href="/assessments/{{.ID}}" class="btn btn-sm">Score →</a>
+        <a href="/assessments/{{.ID}}/results" class="btn btn-sm btn-ghost">Results</a>
+        <a href="/assessments/{{.ID}}/report" class="btn btn-sm btn-ghost">Report</a>
+      </div>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="empty-state">
+    <p>No assessments yet. Create a project first, then add an assessment.</p>
+    <a href="/projects" class="btn">View Projects</a>
+  </div>
+  {{end}}
+{{end}}

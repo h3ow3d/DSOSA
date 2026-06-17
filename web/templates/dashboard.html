@@ -1,52 +1,67 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{.Title}} · DSOVS Assessment Tool</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="header">
-    <h1>OWASP DSOVS Assessment Tool</h1>
-    <nav><a href="/dashboard">Dashboard</a> <a href="/projects">Projects</a></nav>
-  </header>
-  <main class="container">
-    <section class="card">
-      <h2>Dashboard</h2>
-      {{if .SyncSuccessMessage}}<p class="success">{{.SyncSuccessMessage}}</p>{{end}}
-      <form method="post" action="/catalogue/sync">
-        <button type="submit">Sync OWASP DSOVS Catalogue</button>
-      </form>
-    </section>
-    <section class="grid">
-      <article class="metric"><h3>Catalogue Versions</h3><p>{{.CatalogueCount}}</p></article>
-      <article class="metric"><h3>Controls Indexed</h3><p>{{.ControlCount}}</p></article>
-      <article class="metric"><h3>Projects</h3><p>{{.ProjectCount}}</p></article>
-      <article class="metric"><h3>Assessments</h3><p>{{.AssessmentCount}}</p></article>
-    </section>
-    {{if .LastCatalogue}}
-    <section class="card">
-      <h3>Latest Catalogue</h3>
-      <p>Version: {{.LastCatalogue.Version}}</p>
-      <p>SHA256: <code>{{.LastCatalogue.SHA256}}</code></p>
-      <p>Fetched: {{.LastCatalogue.FetchedAt}}</p>
-    </section>
-    {{end}}
-    <section class="card">
-      <h3>Catalogue Status</h3>
+{{define "content"}}
+  {{if .SyncMessage}}<p class="alert alert-ok">{{.SyncMessage}}</p>{{end}}
+
+  <div class="page-header">
+    <h2>Dashboard</h2>
+    <form method="post" action="/catalogue/sync">
+      <button type="submit" id="sync-btn">↻ Sync OWASP DSOVS Catalogue</button>
+    </form>
+  </div>
+
+  <div class="grid grid-4">
+    <article class="metric">
+      <h3>Catalogue</h3>
       {{if .HasCatalogue}}
-      <svg width="280" height="80" role="img" aria-label="Catalogue status chart">
-        <rect x="0" y="0" width="280" height="80" rx="8" class="chart-bg"></rect>
-        <rect x="20" y="40" width="120" height="20" class="chart-ok"></rect>
-        <rect x="160" y="40" width="100" height="20" class="chart-mid"></rect>
-        <text x="20" y="30" class="chart-label">Catalogue present</text>
-      </svg>
+        <p class="metric-val ok">Synced</p>
+        <p class="metric-sub">v{{.CatalogueVersion}}</p>
       {{else}}
-      <p>No catalogue synced yet.</p>
+        <p class="metric-val warn">Not synced</p>
       {{end}}
-    </section>
-  </main>
-  <script src="/static/app.js"></script>
-</body>
-</html>
+    </article>
+    <article class="metric">
+      <h3>Phases</h3>
+      <p class="metric-val">{{.PhaseCount}}</p>
+    </article>
+    <article class="metric">
+      <h3>Controls</h3>
+      <p class="metric-val">{{.ControlCount}}</p>
+    </article>
+    <article class="metric">
+      <h3>Last Synced</h3>
+      <p class="metric-val metric-sm">{{fmtTime .LastSynced}}</p>
+    </article>
+    <article class="metric">
+      <h3>Projects</h3>
+      <p class="metric-val">{{.ProjectCount}}</p>
+      <a class="metric-link" href="/projects">View →</a>
+    </article>
+    <article class="metric">
+      <h3>Assessments</h3>
+      <p class="metric-val">{{.AssessmentCount}}</p>
+      <a class="metric-link" href="/assessments">View →</a>
+    </article>
+  </div>
+
+  <section class="card">
+    <h3>Getting Started</h3>
+    <ol class="checklist">
+      {{range .Checklist}}
+      <li class="checklist-item{{if .Done}} done{{end}}">
+        <span class="check">{{if .Done}}✓{{else}}○{{end}}</span>
+        {{.Label}}
+      </li>
+      {{end}}
+    </ol>
+  </section>
+
+  {{if .LastCatalogue}}
+  <section class="card">
+    <h3>Latest Catalogue</h3>
+    <table class="info-table">
+      <tr><th>Version</th><td><code>{{.LastCatalogue.Version}}</code></td></tr>
+      <tr><th>SHA256</th><td><code class="hash">{{.LastCatalogue.SHA256}}</code></td></tr>
+      <tr><th>Fetched</th><td>{{fmtTime .LastCatalogue.FetchedAt}}</td></tr>
+    </table>
+  </section>
+  {{end}}
+{{end}}
