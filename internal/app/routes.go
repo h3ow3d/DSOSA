@@ -24,6 +24,10 @@ type controlRow struct {
 	Score   storage.ScoreEntry
 }
 
+func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
+	s.handleAssessments(w, r)
+}
+
 type phaseRow struct {
 	Phase    dsovs.Phase
 	Controls []controlRow
@@ -49,6 +53,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// Dashboard / catalogue
 	mux.HandleFunc("GET /{$}", s.handleDashboard)
 	mux.HandleFunc("GET /dashboard", s.handleDashboard)
+	mux.HandleFunc("GET /catalogue", s.handleDashboard)
 	mux.HandleFunc("POST /catalogue/sync", s.handleCatalogueSync)
 
 	// Projects
@@ -59,6 +64,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 
 	// Assessments
 	mux.HandleFunc("GET /assessments", s.handleAssessments)
+	mux.HandleFunc("GET /reports", s.handleReports)
 	mux.HandleFunc("GET /projects/{id}/assessments/new", s.handleAssessmentNew)
 	mux.HandleFunc("POST /projects/{id}/assessments", s.handleAssessmentCreate)
 	mux.HandleFunc("GET /assessments/{id}", s.handleAssessmentDetail)
@@ -427,7 +433,17 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
-	data := map[string]any{"Title": "New Project", "Nav": "projects"}
+	data := map[string]any{
+		"Title":        "New Project",
+		"Nav":          "projects",
+		"ErrorSummary": strings.TrimSpace(r.URL.Query().Get("error")),
+		"Form": map[string]string{
+			"name":        strings.TrimSpace(r.URL.Query().Get("name")),
+			"client_name": strings.TrimSpace(r.URL.Query().Get("client_name")),
+			"owner":       strings.TrimSpace(r.URL.Query().Get("owner")),
+			"description": strings.TrimSpace(r.URL.Query().Get("description")),
+		},
+	}
 	if err := s.renderer.Render(w, "project_new", data); err != nil {
 		renderErr(w, err, "project_new render failed")
 	}
@@ -449,7 +465,13 @@ func (s *Server) handleProjectCreate(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   now,
 	}
 	if p.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+		q := make(url.Values)
+		q.Set("error", "Project name is required")
+		q.Set("name", p.Name)
+		q.Set("client_name", p.ClientName)
+		q.Set("owner", p.Owner)
+		q.Set("description", p.Description)
+		http.Redirect(w, r, "/projects/new?"+q.Encode(), http.StatusSeeOther)
 		return
 	}
 	if err := s.store.SaveProject(p); err != nil {
@@ -518,10 +540,17 @@ func (s *Server) handleAssessmentNew(w http.ResponseWriter, r *http.Request) {
 	}
 	catalogues, _ := s.store.ListCatalogueVersions()
 	data := map[string]any{
-		"Title":      "New Assessment",
-		"Nav":        "assessments",
-		"Project":    p,
-		"Catalogues": catalogues,
+		"Title":        "New Assessment",
+		"Nav":          "assessments",
+		"Project":      p,
+		"Catalogues":   catalogues,
+		"ErrorSummary": strings.TrimSpace(r.URL.Query().Get("error")),
+		"Form": map[string]string{
+			"name":            strings.TrimSpace(r.URL.Query().Get("name")),
+			"assessment_date": strings.TrimSpace(r.URL.Query().Get("assessment_date")),
+			"assessor":        strings.TrimSpace(r.URL.Query().Get("assessor")),
+			"scope":           strings.TrimSpace(r.URL.Query().Get("scope")),
+		},
 	}
 	if err := s.renderer.Render(w, "assessment_new", data); err != nil {
 		renderErr(w, err, "assessment_new render failed")
@@ -564,7 +593,13 @@ func (s *Server) handleAssessmentCreate(w http.ResponseWriter, r *http.Request) 
 		UpdatedAt:       now,
 	}
 	if a.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+		q := make(url.Values)
+		q.Set("error", "Assessment name is required")
+		q.Set("name", a.Name)
+		q.Set("assessment_date", a.AssessmentDate)
+		q.Set("assessor", a.Assessor)
+		q.Set("scope", a.Scope)
+		http.Redirect(w, r, "/projects/"+pid+"/assessments/new?"+q.Encode(), http.StatusSeeOther)
 		return
 	}
 	if err := s.store.SaveAssessment(a); err != nil {
