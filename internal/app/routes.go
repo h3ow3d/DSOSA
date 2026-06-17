@@ -12,8 +12,8 @@ import (
 )
 
 func (s *Server) registerRoutes(mux *http.ServeMux) {
-	mux.Handle("/static/", http.StripPrefix("/static/", web.StaticHandler()))
-	mux.HandleFunc("GET /", s.handleDashboard)
+	mux.Handle("GET /static/", http.StripPrefix("/static/", web.StaticHandler()))
+	mux.HandleFunc("GET /{$}", s.handleDashboard)
 	mux.HandleFunc("GET /dashboard", s.handleDashboard)
 	mux.HandleFunc("POST /catalogue/sync", s.handleCatalogueSync)
 	mux.HandleFunc("GET /projects", s.handleProjects)
