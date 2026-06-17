@@ -18,7 +18,7 @@ jobs:
 
       - name: gofmt check
         run: |
-          unformatted=$(gofmt -l ./...)
+          unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
             echo "The following files are not formatted:"
             echo "$unformatted"
