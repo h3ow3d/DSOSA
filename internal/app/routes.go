@@ -338,10 +338,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(catalogues, func(i, j int) bool { return catalogues[i].FetchedAt.After(catalogues[j].FetchedAt) })
 
 	var (
-		hasCat    = len(catalogues) > 0
-		catVer    = ""
-		lastCat   any
-		phases    []dsovs.Phase
+		hasCat     = len(catalogues) > 0
+		catVer     = ""
+		lastCat    any
+		phases     []dsovs.Phase
 		phaseCount int
 		ctrlCount  int
 		lastSynced time.Time
@@ -381,18 +381,18 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{
-		"Title":          "Dashboard",
-		"Nav":            "dashboard",
-		"HasCatalogue":   hasCat,
+		"Title":            "Dashboard",
+		"Nav":              "dashboard",
+		"HasCatalogue":     hasCat,
 		"CatalogueVersion": catVer,
-		"PhaseCount":     phaseCount,
-		"ControlCount":   ctrlCount,
-		"LastSynced":     lastSynced,
-		"LastCatalogue":  lastCat,
-		"ProjectCount":   len(projects),
-		"AssessmentCount": len(assessments),
-		"SyncMessage":    r.URL.Query().Get("synced"),
-		"Checklist":      checklist,
+		"PhaseCount":       phaseCount,
+		"ControlCount":     ctrlCount,
+		"LastSynced":       lastSynced,
+		"LastCatalogue":    lastCat,
+		"ProjectCount":     len(projects),
+		"AssessmentCount":  len(assessments),
+		"SyncMessage":      r.URL.Query().Get("synced"),
+		"Checklist":        checklist,
 	}
 	if err := s.renderer.Render(w, "dashboard", data); err != nil {
 		renderErr(w, err, "dashboard render failed")
@@ -457,8 +457,8 @@ func (s *Server) handleProjectCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.store.AppendEvent(storage.Event{
-		Type: "project.created",
-		Time: now,
+		Type:    "project.created",
+		Time:    now,
 		Payload: map[string]any{"id": p.ID, "name": p.Name},
 	})
 	slog.Info("project created", "id", p.ID, "name", p.Name)
@@ -572,8 +572,8 @@ func (s *Server) handleAssessmentCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	_ = s.store.AppendEvent(storage.Event{
-		Type: "assessment.created",
-		Time: now,
+		Type:    "assessment.created",
+		Time:    now,
 		Payload: map[string]any{"id": a.ID, "project_id": pid, "name": a.Name},
 	})
 	slog.Info("assessment created", "id", a.ID, "project_id", pid)
@@ -642,8 +642,8 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.store.AppendEvent(storage.Event{
-		Type: "score.updated",
-		Time: a.UpdatedAt,
+		Type:    "score.updated",
+		Time:    a.UpdatedAt,
 		Payload: map[string]any{"assessment_id": id, "count": len(scores)},
 	})
 	slog.Info("scores saved", "assessment_id", id, "count", len(scores))
@@ -722,8 +722,8 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 	chart := radarSVG(prs)
 
 	_ = s.store.AppendEvent(storage.Event{
-		Type: "report.viewed",
-		Time: time.Now().UTC(),
+		Type:    "report.viewed",
+		Time:    time.Now().UTC(),
 		Payload: map[string]any{"assessment_id": id},
 	})
 
