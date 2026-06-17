@@ -1,0 +1,22 @@
+{{define "layout.html"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · DSOVS Assessment Tool</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="header">
+    <h1>OWASP DSOVS Assessment Tool</h1>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/projects">Projects</a>
+    </nav>
+  </header>
+  <main class="container">{{template "content" .}}</main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
+{{end}}

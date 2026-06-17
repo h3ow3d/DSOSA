@@ -1,45 +1,14 @@
 version: "3.9"
 
 services:
-  db:
-    image: postgres:16
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-dsovs}
-      POSTGRES_USER: ${POSTGRES_USER:-dsovs}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dsovs}
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dsovs}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-dsovs}:${POSTGRES_PASSWORD:-dsovs}@db:5432/${POSTGRES_DB:-dsovs}
-      DSOVS_API_URL: ${DSOVS_API_URL:-https://owasp.org/www-project-devsecops-verification-standard/dist/dsovs.json}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
-      AUTO_SYNC_CATALOGUE: ${AUTO_SYNC_CATALOGUE:-false}
-    ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-
-  frontend:
-    build: ./frontend
-    restart: unless-stopped
-    environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
-
-volumes:
-  pgdata:
+      - ./data:/data
