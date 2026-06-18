@@ -275,6 +275,24 @@ func completionPct(phases []dsovs.Phase, scores []storage.ScoreEntry) int {
 	return scored * 100 / total
 }
 
+func scoredControlCount(phases []dsovs.Phase, scores []storage.ScoreEntry) int {
+	scoreMap := make(map[string]bool, len(scores))
+	for _, sc := range scores {
+		if scoreHasData(sc) {
+			scoreMap[sc.ControlID] = true
+		}
+	}
+	count := 0
+	for _, ph := range phases {
+		for _, c := range ph.Controls {
+			if scoreMap[c.ID] {
+				count++
+			}
+		}
+	}
+	return count
+}
+
 type gapItem struct {
 	ControlID string
 	Title     string
@@ -908,6 +926,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request) {
 	prs := buildPhaseResults(phases, a.Scores)
 	curScore, tgtScore := overallScore(prs)
 	pct := completionPct(phases, a.Scores)
+	scoreCount := scoredControlCount(phases, a.Scores)
 	gaps := topGaps(phases, a.Scores, 10)
 	missing := missingEvidence(phases, a.Scores)
 	chart := radarSVG(prs)
@@ -920,6 +939,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request) {
 		"OverallCurrent":  curScore,
 		"OverallTarget":   tgtScore,
 		"CompletionPct":   pct,
+		"ScoredCount":     scoreCount,
 		"PhaseResults":    prs,
 		"TopGaps":         gaps,
 		"MissingEvidence": missing,
