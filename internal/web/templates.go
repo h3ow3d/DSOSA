@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -56,5 +57,14 @@ var templateFuncs = template.FuncMap{
 			return 0
 		}
 		return n * 100 / total
+	},
+	"eqIntPtr": func(v *int, n int) bool {
+		return v != nil && *v == n
+	},
+	"intPtr": func(v *int) string {
+		if v == nil {
+			return ""
+		}
+		return strconv.Itoa(*v)
 	},
 }
