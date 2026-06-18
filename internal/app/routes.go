@@ -198,6 +198,9 @@ func buildPhaseRows(phases []dsovs.Phase, scores []storage.ScoreEntry) []phaseRo
 			}
 			cr = append(cr, controlRow{Control: ctrl, Score: sc})
 		}
+		if len(cr) == 0 {
+			continue
+		}
 		rows = append(rows, phaseRow{Phase: ph, Controls: cr})
 	}
 	return rows
@@ -750,8 +753,8 @@ func (s *Server) handleAssessmentDetail(w http.ResponseWriter, r *http.Request) 
 		"Project":      p,
 		"Phases":       phaseRows,
 		"Levels":       []int{0, 1, 2, 3},
-		"Priorities":   []string{"", "high", "medium", "low"},
-		"Confidences":  []string{"", "high", "medium", "low"},
+		"Priorities":   []string{"", "low", "medium", "high", "critical"},
+		"Confidences":  []string{"", "low", "medium", "high"},
 		"ScoreCount":   scoreCount,
 		"ControlCount": total,
 		"HasCatalogue": cat != nil,
@@ -791,81 +794,53 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
-	submitted := make(map[string]struct{})
-	for _, controlID := range r.Form["control_id"] {
-		controlID = strings.TrimSpace(controlID)
-		if controlID == "" {
-			continue
-		}
-		if _, ok := validControls[controlID]; !ok {
-			http.Error(w, "unknown control ID", http.StatusBadRequest)
-			return
-		}
-		submitted[controlID] = struct{}{}
-	}
-	fieldPrefixes := []string{"current_level", "target_level", "not_applicable", "evidence_notes", "action_notes", "priority", "confidence"}
-	for key := range r.Form {
-		for _, prefix := range fieldPrefixes {
-			controlID, ok := bracketFieldControlID(key, prefix)
-			if !ok {
-				continue
-			}
-			if _, valid := validControls[controlID]; !valid {
-				http.Error(w, "unknown control ID", http.StatusBadRequest)
-				return
-			}
-			submitted[controlID] = struct{}{}
-			break
-		}
-	}
-	if len(submitted) == 0 {
-		http.Error(w, "no controls submitted", http.StatusBadRequest)
-		return
-	}
 
 	now := time.Now().UTC()
 	scoreMap := make(map[string]storage.ScoreEntry, len(a.Scores))
 	for _, sc := range a.Scores {
 		scoreMap[sc.ControlID] = sc
 	}
-	changedControls := make([]string, 0, len(submitted))
-	for controlID := range submitted {
-		existing, hadExisting := scoreMap[controlID]
-		currentLevel, err := parseNullableLevel(r.FormValue("current_level[" + controlID + "]"))
-		if err != nil {
-			http.Error(w, "invalid current level", http.StatusBadRequest)
-			return
-		}
-		targetLevel, err := parseNullableLevel(r.FormValue("target_level[" + controlID + "]"))
-		if err != nil {
-			http.Error(w, "invalid target level", http.StatusBadRequest)
-			return
-		}
+	changedControls := make([]string, 0, len(validControls))
+	for _, ph := range phases {
+		for _, ctrl := range ph.Controls {
+			controlID := ctrl.ID
+			existing, hadExisting := scoreMap[controlID]
+			currentLevel, err := parseNullableLevel(scoreFieldValue(r, "current_level", controlID))
+			if err != nil {
+				http.Error(w, "invalid current level", http.StatusBadRequest)
+				return
+			}
+			targetLevel, err := parseNullableLevel(scoreFieldValue(r, "target_level", controlID))
+			if err != nil {
+				http.Error(w, "invalid target level", http.StatusBadRequest)
+				return
+			}
 
-		updated := storage.ScoreEntry{
-			ControlID:     controlID,
-			CurrentLevel:  currentLevel,
-			TargetLevel:   targetLevel,
-			NotApplicable: r.FormValue("not_applicable["+controlID+"]") != "",
-			EvidenceNotes: strings.TrimSpace(r.FormValue("evidence_notes[" + controlID + "]")),
-			ActionNotes:   strings.TrimSpace(r.FormValue("action_notes[" + controlID + "]")),
-			Priority:      strings.TrimSpace(r.FormValue("priority[" + controlID + "]")),
-			Confidence:    strings.TrimSpace(r.FormValue("confidence[" + controlID + "]")),
-		}
-		if !scoreHasAnyInput(updated) {
-			if hadExisting {
-				delete(scoreMap, controlID)
+			updated := storage.ScoreEntry{
+				ControlID:     controlID,
+				CurrentLevel:  currentLevel,
+				TargetLevel:   targetLevel,
+				NotApplicable: scoreFieldValue(r, "not_applicable", controlID) != "",
+				EvidenceNotes: strings.TrimSpace(scoreFieldValue(r, "evidence_notes", controlID)),
+				ActionNotes:   strings.TrimSpace(scoreFieldValue(r, "action_notes", controlID)),
+				Priority:      strings.TrimSpace(scoreFieldValue(r, "priority", controlID)),
+				Confidence:    strings.TrimSpace(scoreFieldValue(r, "confidence", controlID)),
+			}
+			if !scoreHasAnyInput(updated) {
+				if hadExisting {
+					delete(scoreMap, controlID)
+					changedControls = append(changedControls, controlID)
+				}
+				continue
+			}
+			if hadExisting && scoreEntriesEqual(existing, updated) {
+				updated.UpdatedAt = existing.UpdatedAt
+			} else {
+				updated.UpdatedAt = now
 				changedControls = append(changedControls, controlID)
 			}
-			continue
+			scoreMap[controlID] = updated
 		}
-		if hadExisting && scoreEntriesEqual(existing, updated) {
-			updated.UpdatedAt = existing.UpdatedAt
-		} else {
-			updated.UpdatedAt = now
-			changedControls = append(changedControls, controlID)
-		}
-		scoreMap[controlID] = updated
 	}
 
 	scores := make([]storage.ScoreEntry, 0, len(scoreMap))
@@ -900,6 +875,17 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("scores saved", "assessment_id", id, "changed", len(changedControls))
 	http.Redirect(w, r, "/assessments/"+id+"?saved="+strconv.Itoa(len(changedControls)), http.StatusSeeOther)
+}
+
+func scoreFieldValue(r *http.Request, prefix, controlID string) string {
+	if vals, ok := r.Form[prefix+"_"+controlID]; ok {
+		if len(vals) == 0 {
+			return ""
+		}
+		return vals[len(vals)-1]
+	}
+	// Backward compatibility for older field naming.
+	return r.FormValue(prefix + "[" + controlID + "]")
 }
 
 // ─── results ──────────────────────────────────────────────────────────────────

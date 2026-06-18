@@ -19,13 +19,12 @@ func TestScoreSaveUpdatesAssessmentJSON(t *testing.T) {
 	assessmentID := seedAssessment(t, s, projectID)
 
 	form := url.Values{}
-	form.Add("control_id", "C-1")
-	form.Set("current_level[C-1]", "2")
-	form.Set("target_level[C-1]", "3")
-	form.Set("evidence_notes[C-1]", "Updated evidence")
-	form.Set("action_notes[C-1]", "Updated action")
-	form.Set("priority[C-1]", "high")
-	form.Set("confidence[C-1]", "medium")
+	form.Set("current_level_ORG-001", "2")
+	form.Set("target_level_ORG-001", "3")
+	form.Set("evidence_notes_ORG-001", "Updated evidence")
+	form.Set("action_notes_ORG-001", "Updated action")
+	form.Set("priority_ORG-001", "high")
+	form.Set("confidence_ORG-001", "medium")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(form.Encode()))
@@ -83,10 +82,9 @@ func TestSavedScoresReloadOnAssessmentPage(t *testing.T) {
 	assessmentID := seedAssessment(t, s, projectID)
 
 	form := url.Values{}
-	form.Add("control_id", "C-1")
-	form.Set("current_level[C-1]", "0")
-	form.Set("target_level[C-1]", "3")
-	form.Set("evidence_notes[C-1]", "Evidence A")
+	form.Set("current_level_ORG-001", "0")
+	form.Set("target_level_ORG-001", "3")
+	form.Set("evidence_notes_ORG-001", "Evidence A")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(form.Encode()))
@@ -97,10 +95,10 @@ func TestSavedScoresReloadOnAssessmentPage(t *testing.T) {
 	}
 
 	page := getPageBody(t, s, "/assessments/"+assessmentID)
-	if !strings.Contains(page, `name="current_level[C-1]"`) || !strings.Contains(page, `id="current-C-1-0"`) || !strings.Contains(page, `id="current-C-1-0" type="radio" name="current_level[C-1]" value="0" checked`) {
+	if !strings.Contains(page, `name="current_level_ORG-001"`) || !strings.Contains(page, `id="current-ORG-001-0"`) || !strings.Contains(page, `id="current-ORG-001-0" type="radio" name="current_level_ORG-001" value="0" checked`) {
 		t.Fatal("assessment page did not reload saved current level")
 	}
-	if !strings.Contains(page, `name="target_level[C-1]"`) || !strings.Contains(page, `id="target-C-1-3" type="radio" name="target_level[C-1]" value="3" checked`) {
+	if !strings.Contains(page, `name="target_level_ORG-001"`) || !strings.Contains(page, `id="target-ORG-001-3" type="radio" name="target_level_ORG-001" value="3" checked`) {
 		t.Fatal("assessment page did not reload saved target level")
 	}
 	if !strings.Contains(page, "Evidence A") {
@@ -114,8 +112,7 @@ func TestInvalidScoreValuesAreRejected(t *testing.T) {
 	assessmentID := seedAssessment(t, s, projectID)
 
 	form := url.Values{}
-	form.Add("control_id", "C-1")
-	form.Set("current_level[C-1]", "9")
+	form.Set("current_level_ORG-001", "9")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(form.Encode()))
@@ -125,15 +122,6 @@ func TestInvalidScoreValuesAreRejected(t *testing.T) {
 		t.Fatalf("invalid level status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 
-	badControlForm := url.Values{}
-	badControlForm.Add("control_id", "UNKNOWN")
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(badControlForm.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	s.http.Handler.ServeHTTP(rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("unknown control status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
 }
 
 func TestResultsUseSavedScores(t *testing.T) {
@@ -142,10 +130,9 @@ func TestResultsUseSavedScores(t *testing.T) {
 	assessmentID := seedAssessment(t, s, projectID)
 
 	form := url.Values{}
-	form.Add("control_id", "C-1")
-	form.Set("current_level[C-1]", "1")
-	form.Set("target_level[C-1]", "3")
-	form.Set("priority[C-1]", "high")
+	form.Set("current_level_ORG-001", "1")
+	form.Set("target_level_ORG-001", "3")
+	form.Set("priority_ORG-001", "high")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(form.Encode()))
@@ -161,7 +148,7 @@ func TestResultsUseSavedScores(t *testing.T) {
 		"<td>Plan</td>",
 		"<td>1</td>",
 		"<td>3</td>",
-		"<code>C-1</code>",
+		"<code>ORG-001</code>",
 	} {
 		if !strings.Contains(results, want) {
 			t.Fatalf("results page missing %q", want)
@@ -176,11 +163,12 @@ func TestAssessmentPageRendersControlScoringCardFields(t *testing.T) {
 
 	page := getPageBody(t, s, "/assessments/"+assessmentID)
 	for _, want := range []string{
+		`type="radio"`,
 		`class="wcag-control-card"`,
-		`name="current_level[C-1]"`,
-		`name="target_level[C-1]"`,
-		`name="evidence_notes[C-1]"`,
-		`name="action_notes[C-1]"`,
+		`name="current_level_ORG-001"`,
+		`name="target_level_ORG-001"`,
+		`name="evidence_notes_ORG-001"`,
+		`name="action_notes_ORG-001"`,
 	} {
 		if !strings.Contains(page, want) {
 			t.Fatalf("assessment page missing %q", want)
@@ -194,11 +182,10 @@ func TestReportIncludesSavedControlData(t *testing.T) {
 	assessmentID := seedAssessment(t, s, projectID)
 
 	form := url.Values{}
-	form.Add("control_id", "C-1")
-	form.Set("current_level[C-1]", "1")
-	form.Set("target_level[C-1]", "2")
-	form.Set("evidence_notes[C-1]", "Evidence for report")
-	form.Set("action_notes[C-1]", "Action for report")
+	form.Set("current_level_ORG-001", "1")
+	form.Set("target_level_ORG-001", "2")
+	form.Set("evidence_notes_ORG-001", "Evidence for report")
+	form.Set("action_notes_ORG-001", "Action for report")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(form.Encode()))
@@ -210,7 +197,7 @@ func TestReportIncludesSavedControlData(t *testing.T) {
 
 	report := getPageBody(t, s, "/assessments/"+assessmentID+"/report")
 	for _, want := range []string{
-		"<code>C-1</code>",
+		"<code>ORG-001</code>",
 		"Evidence for report",
 		"Action for report",
 		"<td>1</td>",
