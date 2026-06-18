@@ -13,6 +13,8 @@ type Control struct {
 	Title   string `json:"title"`
 	Summary string `json:"summary"`
 	DocURL  string `json:"doc_url"`
+	Type    string `json:"type"`
+	Status  string `json:"status"`
 	Level0  string `json:"level_0"`
 	Level1  string `json:"level_1"`
 	Level2  string `json:"level_2"`
@@ -99,6 +101,8 @@ func extractControls(items []any) []Control {
 			Title:   strField(m, "title", "name", "control", "heading"),
 			Summary: strField(m, "summary", "objective", "description", "statement"),
 			DocURL:  docURL(m),
+			Type:    strField(m, "type", "control_type", "category"),
+			Status:  strField(m, "status", "state"),
 			Level0:  strField(m, "L0", "level_0", "level0", "l0", "maturity_0"),
 			Level1:  strField(m, "L1", "level_1", "level1", "l1", "maturity_1"),
 			Level2:  strField(m, "L2", "level_2", "level2", "l2", "maturity_2"),

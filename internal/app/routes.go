@@ -106,8 +106,46 @@ func scoreLevelValue(level *int) int {
 	return *level
 }
 
+func targetLevelValue(level *int) int {
+	if level == nil {
+		return 2
+	}
+	return *level
+}
+
 func scoreHasData(sc storage.ScoreEntry) bool {
-	return sc.CurrentLevel != nil || sc.TargetLevel != nil || sc.NotApplicable
+	return sc.CurrentLevel != nil || sc.NotApplicable
+}
+
+func scoreHasAnyInput(sc storage.ScoreEntry) bool {
+	return sc.CurrentLevel != nil ||
+		sc.TargetLevel != nil ||
+		sc.NotApplicable ||
+		strings.TrimSpace(sc.EvidenceNotes) != "" ||
+		strings.TrimSpace(sc.ActionNotes) != "" ||
+		strings.TrimSpace(sc.Priority) != "" ||
+		strings.TrimSpace(sc.Confidence) != ""
+}
+
+func intPtrEqual(a, b *int) bool {
+	switch {
+	case a == nil && b == nil:
+		return true
+	case a == nil || b == nil:
+		return false
+	default:
+		return *a == *b
+	}
+}
+
+func scoreEntriesEqual(a, b storage.ScoreEntry) bool {
+	return intPtrEqual(a.CurrentLevel, b.CurrentLevel) &&
+		intPtrEqual(a.TargetLevel, b.TargetLevel) &&
+		a.NotApplicable == b.NotApplicable &&
+		strings.TrimSpace(a.EvidenceNotes) == strings.TrimSpace(b.EvidenceNotes) &&
+		strings.TrimSpace(a.ActionNotes) == strings.TrimSpace(b.ActionNotes) &&
+		strings.TrimSpace(a.Priority) == strings.TrimSpace(b.Priority) &&
+		strings.TrimSpace(a.Confidence) == strings.TrimSpace(b.Confidence)
 }
 
 func (s *Server) assessmentCatalogue(a *storage.Assessment) (*storage.CatalogueRecord, error) {
@@ -176,11 +214,11 @@ func buildPhaseResults(phases []dsovs.Phase, scores []storage.ScoreEntry) []phas
 		n := 0
 		for _, ctrl := range ph.Controls {
 			sc, ok := scoreMap[ctrl.ID]
-			if !ok || sc.NotApplicable {
+			if !ok || sc.NotApplicable || sc.CurrentLevel == nil {
 				continue
 			}
 			sumCur += float64(scoreLevelValue(sc.CurrentLevel))
-			sumTgt += float64(scoreLevelValue(sc.TargetLevel))
+			sumTgt += float64(targetLevelValue(sc.TargetLevel))
 			n++
 		}
 		var cur, tgt float64
@@ -250,10 +288,10 @@ func topGaps(phases []dsovs.Phase, scores []storage.ScoreEntry, n int) []gapItem
 	}
 	items := make([]gapItem, 0)
 	for _, sc := range scores {
-		if sc.NotApplicable {
+		if sc.NotApplicable || sc.CurrentLevel == nil {
 			continue
 		}
-		gap := scoreLevelValue(sc.TargetLevel) - scoreLevelValue(sc.CurrentLevel)
+		gap := targetLevelValue(sc.TargetLevel) - scoreLevelValue(sc.CurrentLevel)
 		if gap > 0 {
 			items = append(items, gapItem{
 				ControlID: sc.ControlID,
@@ -675,9 +713,34 @@ func (s *Server) handleAssessmentDetail(w http.ResponseWriter, r *http.Request) 
 
 	phaseRows := buildPhaseRows(phases, a.Scores)
 
+	scoreCount := 0
 	total := 0
+	validControls := make(map[string]struct{})
 	for _, ph := range phases {
 		total += len(ph.Controls)
+		for _, ctrl := range ph.Controls {
+			validControls[ctrl.ID] = struct{}{}
+		}
+	}
+	for _, sc := range a.Scores {
+		if _, ok := validControls[sc.ControlID]; ok && scoreHasData(sc) {
+			scoreCount++
+		}
+	}
+
+	savedCount := 0
+	if raw := strings.TrimSpace(r.URL.Query().Get("saved")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n >= 0 {
+			savedCount = n
+		}
+	}
+	saveMessage := ""
+	if r.URL.Query().Has("saved") {
+		if savedCount > 0 {
+			saveMessage = fmt.Sprintf("Saved %d control score(s).", savedCount)
+		} else {
+			saveMessage = "No score changes were detected."
+		}
 	}
 
 	data := map[string]any{
@@ -689,9 +752,10 @@ func (s *Server) handleAssessmentDetail(w http.ResponseWriter, r *http.Request) 
 		"Levels":       []int{0, 1, 2, 3},
 		"Priorities":   []string{"", "high", "medium", "low"},
 		"Confidences":  []string{"", "high", "medium", "low"},
-		"ScoreCount":   len(a.Scores),
+		"ScoreCount":   scoreCount,
 		"ControlCount": total,
 		"HasCatalogue": cat != nil,
+		"SaveMessage":  saveMessage,
 	}
 	if err := s.renderer.Render(w, "assessment", data); err != nil {
 		renderErr(w, err, "assessment render failed")
@@ -764,7 +828,9 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 	for _, sc := range a.Scores {
 		scoreMap[sc.ControlID] = sc
 	}
+	changedControls := make([]string, 0, len(submitted))
 	for controlID := range submitted {
+		existing, hadExisting := scoreMap[controlID]
 		currentLevel, err := parseNullableLevel(r.FormValue("current_level[" + controlID + "]"))
 		if err != nil {
 			http.Error(w, "invalid current level", http.StatusBadRequest)
@@ -775,7 +841,8 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid target level", http.StatusBadRequest)
 			return
 		}
-		scoreMap[controlID] = storage.ScoreEntry{
+
+		updated := storage.ScoreEntry{
 			ControlID:     controlID,
 			CurrentLevel:  currentLevel,
 			TargetLevel:   targetLevel,
@@ -784,8 +851,21 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 			ActionNotes:   strings.TrimSpace(r.FormValue("action_notes[" + controlID + "]")),
 			Priority:      strings.TrimSpace(r.FormValue("priority[" + controlID + "]")),
 			Confidence:    strings.TrimSpace(r.FormValue("confidence[" + controlID + "]")),
-			UpdatedAt:     now,
 		}
+		if !scoreHasAnyInput(updated) {
+			if hadExisting {
+				delete(scoreMap, controlID)
+				changedControls = append(changedControls, controlID)
+			}
+			continue
+		}
+		if hadExisting && scoreEntriesEqual(existing, updated) {
+			updated.UpdatedAt = existing.UpdatedAt
+		} else {
+			updated.UpdatedAt = now
+			changedControls = append(changedControls, controlID)
+		}
+		scoreMap[controlID] = updated
 	}
 
 	scores := make([]storage.ScoreEntry, 0, len(scoreMap))
@@ -799,19 +879,27 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.Scores = scores
-	a.UpdatedAt = now
-	if err := s.store.SaveAssessment(*a); err != nil {
-		renderErr(w, err, "save scores failed")
-		return
+	if len(changedControls) > 0 {
+		a.UpdatedAt = now
+		if err := s.store.SaveAssessment(*a); err != nil {
+			renderErr(w, err, "save scores failed")
+			return
+		}
 	}
 
-	_ = s.store.AppendEvent(storage.Event{
-		Type:    "score.updated",
-		Time:    a.UpdatedAt,
-		Payload: map[string]any{"assessment_id": id, "count": len(submitted)},
-	})
-	slog.Info("scores saved", "assessment_id", id, "count", len(submitted))
-	http.Redirect(w, r, "/assessments/"+id, http.StatusSeeOther)
+	for _, controlID := range changedControls {
+		_ = s.store.AppendEvent(storage.Event{
+			Type: "score.updated",
+			Time: now,
+			Payload: map[string]any{
+				"assessment_id": id,
+				"control_id":    controlID,
+			},
+		})
+	}
+
+	slog.Info("scores saved", "assessment_id", id, "changed", len(changedControls))
+	http.Redirect(w, r, "/assessments/"+id+"?saved="+strconv.Itoa(len(changedControls)), http.StatusSeeOther)
 }
 
 // ─── results ──────────────────────────────────────────────────────────────────
@@ -868,7 +956,7 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 	}
 	p, _ := s.store.GetProject(a.ProjectID)
 
-	cat, _ := s.store.ReadCurrentCatalogue()
+	cat, _ := s.assessmentCatalogue(a)
 	var phases []dsovs.Phase
 	if cat != nil {
 		phases = dsovs.ParsePhases(cat.Body)
