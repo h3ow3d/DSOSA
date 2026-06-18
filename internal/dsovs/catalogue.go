@@ -1,5 +1,10 @@
 package dsovs
 
+import (
+	"strings"
+	"unicode"
+)
+
 // Phase represents a DSOVS phase (group/category) of controls.
 type Phase struct {
 	ID       string    `json:"id"`
@@ -32,9 +37,20 @@ func ParsePhases(body map[string]any) []Phase {
 			}
 		}
 	}
+	// Some DSOVS exports are a flat control list with a phase/domain field on each control.
+	for _, key := range []string{"controls", "items", "requirements", "practices"} {
+		if raw, ok := body[key]; ok {
+			if phases := extractPhasesFromControls(raw); len(phases) > 0 {
+				return phases
+			}
+		}
+	}
 	// Fallback: look for any top-level []any whose items have controls
 	for _, v := range body {
 		if phases := extractPhases(v); len(phases) > 0 {
+			return phases
+		}
+		if phases := extractPhasesFromControls(v); len(phases) > 0 {
 			return phases
 		}
 	}
@@ -113,6 +129,65 @@ func extractControls(items []any) []Control {
 		}
 	}
 	return controls
+}
+
+func extractPhasesFromControls(raw any) []Phase {
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	phases := make([]Phase, 0)
+	indexByKey := make(map[string]int)
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		control := extractControls([]any{m})
+		if len(control) == 0 {
+			continue
+		}
+		phaseName := strField(m, "phase", "domain", "group", "section", "category", "phase_name")
+		if phaseName == "" {
+			phaseName = "Other"
+		}
+		phaseID := phaseSlug(phaseName)
+		if phaseID == "" {
+			phaseID = "other"
+		}
+		idx, ok := indexByKey[phaseID]
+		if !ok {
+			idx = len(phases)
+			indexByKey[phaseID] = idx
+			phases = append(phases, Phase{
+				ID:       phaseID,
+				Name:     phaseName,
+				Controls: make([]Control, 0, 1),
+			})
+		}
+		phases[idx].Controls = append(phases[idx].Controls, control[0])
+	}
+	return phases
+}
+
+func phaseSlug(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return ""
+	}
+	var b strings.Builder
+	lastHyphen := false
+	for _, r := range value {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(r)
+			lastHyphen = false
+		case !lastHyphen:
+			b.WriteByte('-')
+			lastHyphen = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
 }
 
 func strField(m map[string]any, keys ...string) string {

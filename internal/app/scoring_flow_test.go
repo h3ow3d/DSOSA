@@ -176,6 +176,68 @@ func TestAssessmentPageRendersControlScoringCardFields(t *testing.T) {
 	}
 }
 
+func TestScoringJourneyPersistsFlatCatalogueControlsEndToEnd(t *testing.T) {
+	s := newTestServer(t)
+	projectID := seedProject(t, s)
+	catalogue := seedFlatControlCatalogue(t, s)
+	assessmentID := seedBlankAssessment(t, s, projectID, catalogue)
+
+	page := getPageBody(t, s, "/assessments/"+assessmentID)
+	for _, want := range []string{
+		"Risk Assessment",
+		`name="current_level_ORG-001"`,
+		`name="target_level_ORG-001"`,
+		`name="evidence_notes_ORG-001"`,
+		`name="action_notes_ORG-001"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("assessment page missing %q", want)
+		}
+	}
+
+	form := url.Values{}
+	form.Set("current_level_ORG-001", "1")
+	form.Set("target_level_ORG-001", "2")
+	form.Set("evidence_notes_ORG-001", "Evidence note")
+	form.Set("action_notes_ORG-001", "Action note")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	s.http.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST scores: got %d want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	reloaded := getPageBody(t, s, "/assessments/"+assessmentID)
+	for _, want := range []string{
+		`id="current-ORG-001-1" type="radio" name="current_level_ORG-001" value="1" checked`,
+		`id="target-ORG-001-2" type="radio" name="target_level_ORG-001" value="2" checked`,
+		"Evidence note",
+		"Action note",
+		"1 of 1 scored",
+	} {
+		if !strings.Contains(reloaded, want) {
+			t.Fatalf("reloaded assessment missing %q", want)
+		}
+	}
+
+	results := getPageBody(t, s, "/assessments/"+assessmentID+"/results")
+	for _, want := range []string{
+		"Controls Scored",
+		"<p class=\"metric-val\">1</p>",
+		"<td>Plan</td>",
+		"<td>1</td>",
+		"<td>2</td>",
+		`class="gap-high">1</td>`,
+		"<code>ORG-001</code>",
+	} {
+		if !strings.Contains(results, want) {
+			t.Fatalf("results page missing %q", want)
+		}
+	}
+}
+
 func TestReportIncludesSavedControlData(t *testing.T) {
 	s := newTestServer(t)
 	projectID := seedProject(t, s)

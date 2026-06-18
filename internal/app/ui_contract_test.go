@@ -284,6 +284,57 @@ func seedAssessment(t *testing.T, s *Server, projectID string) string {
 	return a.ID
 }
 
+func seedFlatControlCatalogue(t *testing.T, s *Server) storage.CatalogueRecord {
+	t.Helper()
+	now := time.Now().UTC()
+	catalogue := storage.CatalogueRecord{
+		Version:   "flat-controls",
+		SHA256:    "flat123",
+		FetchedAt: now,
+		Body: map[string]any{
+			"version": "2026.1",
+			"controls": []any{
+				map[string]any{
+					"id":          "ORG-001",
+					"title":       "Risk Assessment",
+					"objective":   "Control summary",
+					"phase":       "Plan",
+					"level_0":     "not started",
+					"level_1":     "basic",
+					"level_2":     "managed",
+					"level_3":     "optimized",
+					"references":  []any{"https://example.invalid/org-001"},
+					"status":      "active",
+					"type":        "governance",
+				},
+			},
+		},
+	}
+	if err := s.store.SaveCatalogue(catalogue); err != nil {
+		t.Fatalf("SaveCatalogue: %v", err)
+	}
+	return catalogue
+}
+
+func seedBlankAssessment(t *testing.T, s *Server, projectID string, catalogue storage.CatalogueRecord) string {
+	t.Helper()
+	now := time.Now().UTC()
+	a := storage.Assessment{
+		ID:              "assessment-blank",
+		ProjectID:       projectID,
+		Name:            "Blank Assessment",
+		AssessmentDate:  "2026-01-01",
+		StandardVersion: "2026.1",
+		CatalogueHash:   catalogue.SHA256,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if err := s.store.SaveAssessment(a); err != nil {
+		t.Fatalf("SaveAssessment: %v", err)
+	}
+	return a.ID
+}
+
 func ptrInt(v int) *int {
 	return &v
 }
