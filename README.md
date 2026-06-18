@@ -79,6 +79,17 @@ Then open `http://localhost:8080`.
 - Manually test browser print and Save as PDF from a report page
 - Manually verify pages remain readable and usable with JavaScript disabled
 
+## Dependency governance
+
+Secure Delivery Compass allows dependencies only through a governed process.
+Application dependencies must be documented, pinned, reviewed, scanned, and
+covered by CI guardrails. CI/release tooling may use external tools, but those
+tools must not become accidental runtime dependencies.
+
+- [DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md) — rules for every external dependency
+- [SUPPLY_CHAIN.md](SUPPLY_CHAIN.md) — delivery trust model and planned controls
+- [docs/dependency-decisions/](docs/dependency-decisions/) — per-dependency decision records
+
 ## Dashboard sync flow
 
 1. Open Dashboard.
