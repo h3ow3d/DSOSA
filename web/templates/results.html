@@ -85,7 +85,7 @@
         <tr>
           <td><code>{{.Control.ID}}</code></td>
           <td>{{.Control.Title}}</td>
-          <td>{{.Score.Current}}</td>
+          <td>{{intPtr .Score.CurrentLevel}}</td>
         </tr>
         {{end}}
       </tbody>

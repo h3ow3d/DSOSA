@@ -111,11 +111,11 @@
           <tr{{if .Score.NotApplicable}} class="na-row"{{end}}>
             <td><code>{{.Control.ID}}</code></td>
             <td>{{.Control.Title}}</td>
-            <td>{{.Score.Current}}</td>
-            <td>{{.Score.Target}}</td>
+            <td>{{intPtr .Score.CurrentLevel}}</td>
+            <td>{{intPtr .Score.TargetLevel}}</td>
             <td>{{if .Score.NotApplicable}}Yes{{end}}</td>
             <td>{{if .Score.Priority}}{{.Score.Priority}}{{else}}—{{end}}</td>
-            <td class="notes-cell">{{.Score.Evidence}}</td>
+            <td class="notes-cell">{{.Score.EvidenceNotes}}</td>
             <td class="notes-cell">{{.Score.ActionNotes}}</td>
           </tr>
           {{end}}

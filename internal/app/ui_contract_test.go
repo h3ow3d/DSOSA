@@ -269,11 +269,12 @@ func seedAssessment(t *testing.T, s *Server, projectID string) string {
 		UpdatedAt:      now,
 		Scores: []storage.ScoreEntry{
 			{
-				ControlID:   "C-1",
-				Current:     1,
-				Target:      2,
-				Evidence:    "Evidence",
-				ActionNotes: "Actions",
+				ControlID:     "C-1",
+				CurrentLevel:  ptrInt(1),
+				TargetLevel:   ptrInt(2),
+				EvidenceNotes: "Evidence",
+				ActionNotes:   "Actions",
+				UpdatedAt:     now,
 			},
 		},
 	}
@@ -281,4 +282,8 @@ func seedAssessment(t *testing.T, s *Server, projectID string) string {
 		t.Fatalf("SaveAssessment: %v", err)
 	}
 	return a.ID
+}
+
+func ptrInt(v int) *int {
+	return &v
 }

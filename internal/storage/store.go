@@ -20,14 +20,15 @@ type Project struct {
 }
 
 type ScoreEntry struct {
-	ControlID     string `json:"control_id"`
-	Current       int    `json:"current"`
-	Target        int    `json:"target"`
-	NotApplicable bool   `json:"not_applicable"`
-	Evidence      string `json:"evidence"`
-	ActionNotes   string `json:"action_notes"`
-	Priority      string `json:"priority"`
-	Confidence    string `json:"confidence"`
+	ControlID     string    `json:"control_id"`
+	CurrentLevel  *int      `json:"current_level,omitempty"`
+	TargetLevel   *int      `json:"target_level,omitempty"`
+	NotApplicable bool      `json:"not_applicable"`
+	EvidenceNotes string    `json:"evidence_notes"`
+	ActionNotes   string    `json:"action_notes"`
+	Priority      string    `json:"priority"`
+	Confidence    string    `json:"confidence"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Assessment struct {

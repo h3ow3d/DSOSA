@@ -22,9 +22,7 @@
   <div class="alert alert-warn">Catalogue loaded but no phases could be parsed. Try re-syncing.</div>
   {{else}}
 
-  <div id="save-status" class="save-status" aria-live="polite"></div>
-
-  <form id="score-form">
+  <form method="post" action="/assessments/{{.Assessment.ID}}/scores">
     {{range .Phases}}
     <section class="phase-section">
       <h3 class="phase-title">{{.Phase.Name}}</h3>
@@ -53,30 +51,33 @@
           <legend>Maturity scoring</legend>
           <p class="hint-text">Set current and target levels, then mark N/A if the control does not apply.</p>
           {{$sc := .Score}}
+          <input type="hidden" name="control_id" value="{{.Control.ID}}">
           <label class="score-label">
             Current level
-            <select class="current-select">
-              {{range $.Levels}}<option value="{{.}}"{{if eq . $sc.Current}} selected{{end}}>{{.}}</option>{{end}}
+            <select name="current_level[{{.Control.ID}}]" class="current-select">
+              <option value="">—</option>
+              {{range $.Levels}}<option value="{{.}}"{{if eqIntPtr $sc.CurrentLevel .}} selected{{end}}>{{.}}</option>{{end}}
             </select>
           </label>
           <label class="score-label">
             Target level
-            <select class="target-select">
-              {{range $.Levels}}<option value="{{.}}"{{if eq . $sc.Target}} selected{{end}}>{{.}}</option>{{end}}
+            <select name="target_level[{{.Control.ID}}]" class="target-select">
+              <option value="">—</option>
+              {{range $.Levels}}<option value="{{.}}"{{if eqIntPtr $sc.TargetLevel .}} selected{{end}}>{{.}}</option>{{end}}
             </select>
           </label>
           <label class="score-label na-label">
-            <input type="checkbox" class="na-check"{{if $sc.NotApplicable}} checked{{end}}> N/A
+            <input type="checkbox" name="not_applicable[{{.Control.ID}}]" class="na-check"{{if $sc.NotApplicable}} checked{{end}}> N/A
           </label>
           <label class="score-label">
             Priority
-            <select class="priority-select">
+            <select name="priority[{{.Control.ID}}]" class="priority-select">
               {{range $.Priorities}}<option value="{{.}}"{{if eq . $sc.Priority}} selected{{end}}>{{if .}}{{.}}{{else}}—{{end}}</option>{{end}}
             </select>
           </label>
           <label class="score-label">
             Confidence
-            <select class="confidence-select">
+            <select name="confidence[{{.Control.ID}}]" class="confidence-select">
               {{range $.Confidences}}<option value="{{.}}"{{if eq . $sc.Confidence}} selected{{end}}>{{if .}}{{.}}{{else}}—{{end}}</option>{{end}}
             </select>
           </label>
@@ -84,11 +85,11 @@
         <div class="note-fields">
           <label class="note-label">
             Evidence
-            <textarea class="evidence-area" rows="2" placeholder="Evidence for current score…">{{$sc.Evidence}}</textarea>
+            <textarea name="evidence_notes[{{.Control.ID}}]" class="evidence-area" rows="2" placeholder="Evidence for current score…">{{$sc.EvidenceNotes}}</textarea>
           </label>
           <label class="note-label">
             Action notes
-            <textarea class="action-area" rows="2" placeholder="Actions to reach target…">{{$sc.ActionNotes}}</textarea>
+            <textarea name="action_notes[{{.Control.ID}}]" class="action-area" rows="2" placeholder="Actions to reach target…">{{$sc.ActionNotes}}</textarea>
           </label>
         </div>
       </div>

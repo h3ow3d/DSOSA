@@ -1,7 +1,7 @@
 package app
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,6 +99,52 @@ func renderErr(w http.ResponseWriter, err error, msg string) {
 	http.Error(w, msg, http.StatusInternalServerError)
 }
 
+func scoreLevelValue(level *int) int {
+	if level == nil {
+		return 0
+	}
+	return *level
+}
+
+func scoreHasData(sc storage.ScoreEntry) bool {
+	return sc.CurrentLevel != nil || sc.TargetLevel != nil || sc.NotApplicable
+}
+
+func (s *Server) assessmentCatalogue(a *storage.Assessment) (*storage.CatalogueRecord, error) {
+	if a.CatalogueHash != "" {
+		cat, err := s.store.ReadCatalogueByHash(a.CatalogueHash)
+		if err == nil {
+			return cat, nil
+		}
+	}
+	return s.store.ReadCurrentCatalogue()
+}
+
+var errInvalidScoreValue = errors.New("level must be empty or 0-3")
+
+func parseNullableLevel(raw string) (*int, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 0 || n > 3 {
+		return nil, errInvalidScoreValue
+	}
+	return &n, nil
+}
+
+func bracketFieldControlID(key, prefix string) (string, bool) {
+	if !strings.HasPrefix(key, prefix+"[") || !strings.HasSuffix(key, "]") {
+		return "", false
+	}
+	controlID := strings.TrimSuffix(strings.TrimPrefix(key, prefix+"["), "]")
+	if strings.TrimSpace(controlID) == "" {
+		return "", false
+	}
+	return controlID, true
+}
+
 func buildPhaseRows(phases []dsovs.Phase, scores []storage.ScoreEntry) []phaseRow {
 	scoreMap := make(map[string]storage.ScoreEntry, len(scores))
 	for _, sc := range scores {
@@ -132,8 +179,8 @@ func buildPhaseResults(phases []dsovs.Phase, scores []storage.ScoreEntry) []phas
 			if !ok || sc.NotApplicable {
 				continue
 			}
-			sumCur += float64(sc.Current)
-			sumTgt += float64(sc.Target)
+			sumCur += float64(scoreLevelValue(sc.CurrentLevel))
+			sumTgt += float64(scoreLevelValue(sc.TargetLevel))
 			n++
 		}
 		var cur, tgt float64
@@ -167,7 +214,7 @@ func overallScore(prs []phaseResult) (cur, tgt float64) {
 func completionPct(phases []dsovs.Phase, scores []storage.ScoreEntry) int {
 	scoreMap := make(map[string]bool, len(scores))
 	for _, sc := range scores {
-		if sc.Current > 0 || sc.NotApplicable {
+		if scoreHasData(sc) {
 			scoreMap[sc.ControlID] = true
 		}
 	}
@@ -195,10 +242,6 @@ type gapItem struct {
 }
 
 func topGaps(phases []dsovs.Phase, scores []storage.ScoreEntry, n int) []gapItem {
-	scoreMap := make(map[string]storage.ScoreEntry)
-	for _, sc := range scores {
-		scoreMap[sc.ControlID] = sc
-	}
 	titleMap := make(map[string]string)
 	for _, ph := range phases {
 		for _, c := range ph.Controls {
@@ -210,7 +253,7 @@ func topGaps(phases []dsovs.Phase, scores []storage.ScoreEntry, n int) []gapItem
 		if sc.NotApplicable {
 			continue
 		}
-		gap := sc.Target - sc.Current
+		gap := scoreLevelValue(sc.TargetLevel) - scoreLevelValue(sc.CurrentLevel)
 		if gap > 0 {
 			items = append(items, gapItem{
 				ControlID: sc.ControlID,
@@ -236,7 +279,7 @@ func missingEvidence(phases []dsovs.Phase, scores []storage.ScoreEntry) []contro
 	for _, ph := range phases {
 		for _, c := range ph.Controls {
 			sc := scoreMap[c.ID]
-			if sc.Current > 0 && !sc.NotApplicable && strings.TrimSpace(sc.Evidence) == "" {
+			if sc.CurrentLevel != nil && !sc.NotApplicable && strings.TrimSpace(sc.EvidenceNotes) == "" {
 				out = append(out, controlRow{Control: c, Score: sc})
 			}
 		}
@@ -624,7 +667,7 @@ func (s *Server) handleAssessmentDetail(w http.ResponseWriter, r *http.Request) 
 	}
 	p, _ := s.store.GetProject(a.ProjectID)
 
-	cat, _ := s.store.ReadCurrentCatalogue()
+	cat, _ := s.assessmentCatalogue(a)
 	var phases []dsovs.Phase
 	if cat != nil {
 		phases = dsovs.ParsePhases(cat.Body)
@@ -659,18 +702,104 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	a, err := s.store.GetAssessment(id)
 	if err != nil {
-		http.Error(w, "assessment not found", http.StatusNotFound)
+		http.NotFound(w, r)
 		return
 	}
 
-	var scores []storage.ScoreEntry
-	if err := json.NewDecoder(r.Body).Decode(&scores); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+	cat, _ := s.assessmentCatalogue(a)
+	if cat == nil {
+		http.Error(w, "catalogue not found", http.StatusBadRequest)
+		return
+	}
+	phases := dsovs.ParsePhases(cat.Body)
+	validControls := make(map[string]struct{})
+	for _, ph := range phases {
+		for _, ctrl := range ph.Controls {
+			validControls[ctrl.ID] = struct{}{}
+		}
+	}
+	if len(validControls) == 0 {
+		http.Error(w, "no controls available", http.StatusBadRequest)
 		return
 	}
 
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	submitted := make(map[string]struct{})
+	for _, controlID := range r.Form["control_id"] {
+		controlID = strings.TrimSpace(controlID)
+		if controlID == "" {
+			continue
+		}
+		if _, ok := validControls[controlID]; !ok {
+			http.Error(w, "unknown control ID", http.StatusBadRequest)
+			return
+		}
+		submitted[controlID] = struct{}{}
+	}
+	fieldPrefixes := []string{"current_level", "target_level", "not_applicable", "evidence_notes", "action_notes", "priority", "confidence"}
+	for key := range r.Form {
+		for _, prefix := range fieldPrefixes {
+			controlID, ok := bracketFieldControlID(key, prefix)
+			if !ok {
+				continue
+			}
+			if _, valid := validControls[controlID]; !valid {
+				http.Error(w, "unknown control ID", http.StatusBadRequest)
+				return
+			}
+			submitted[controlID] = struct{}{}
+			break
+		}
+	}
+	if len(submitted) == 0 {
+		http.Error(w, "no controls submitted", http.StatusBadRequest)
+		return
+	}
+
+	now := time.Now().UTC()
+	scoreMap := make(map[string]storage.ScoreEntry, len(a.Scores))
+	for _, sc := range a.Scores {
+		scoreMap[sc.ControlID] = sc
+	}
+	for controlID := range submitted {
+		currentLevel, err := parseNullableLevel(r.FormValue("current_level[" + controlID + "]"))
+		if err != nil {
+			http.Error(w, "invalid current level", http.StatusBadRequest)
+			return
+		}
+		targetLevel, err := parseNullableLevel(r.FormValue("target_level[" + controlID + "]"))
+		if err != nil {
+			http.Error(w, "invalid target level", http.StatusBadRequest)
+			return
+		}
+		scoreMap[controlID] = storage.ScoreEntry{
+			ControlID:     controlID,
+			CurrentLevel:  currentLevel,
+			TargetLevel:   targetLevel,
+			NotApplicable: r.FormValue("not_applicable["+controlID+"]") != "",
+			EvidenceNotes: strings.TrimSpace(r.FormValue("evidence_notes[" + controlID + "]")),
+			ActionNotes:   strings.TrimSpace(r.FormValue("action_notes[" + controlID + "]")),
+			Priority:      strings.TrimSpace(r.FormValue("priority[" + controlID + "]")),
+			Confidence:    strings.TrimSpace(r.FormValue("confidence[" + controlID + "]")),
+			UpdatedAt:     now,
+		}
+	}
+
+	scores := make([]storage.ScoreEntry, 0, len(scoreMap))
+	for _, ph := range phases {
+		for _, ctrl := range ph.Controls {
+			sc, ok := scoreMap[ctrl.ID]
+			if !ok {
+				continue
+			}
+			scores = append(scores, sc)
+		}
+	}
 	a.Scores = scores
-	a.UpdatedAt = time.Now().UTC()
+	a.UpdatedAt = now
 	if err := s.store.SaveAssessment(*a); err != nil {
 		renderErr(w, err, "save scores failed")
 		return
@@ -679,15 +808,10 @@ func (s *Server) handleScoreSave(w http.ResponseWriter, r *http.Request) {
 	_ = s.store.AppendEvent(storage.Event{
 		Type:    "score.updated",
 		Time:    a.UpdatedAt,
-		Payload: map[string]any{"assessment_id": id, "count": len(scores)},
+		Payload: map[string]any{"assessment_id": id, "count": len(submitted)},
 	})
-	slog.Info("scores saved", "assessment_id", id, "count", len(scores))
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"message": "Scores saved",
-		"count":   len(scores),
-	})
+	slog.Info("scores saved", "assessment_id", id, "count", len(submitted))
+	http.Redirect(w, r, "/assessments/"+id, http.StatusSeeOther)
 }
 
 // ─── results ──────────────────────────────────────────────────────────────────
@@ -701,7 +825,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request) {
 	}
 	p, _ := s.store.GetProject(a.ProjectID)
 
-	cat, _ := s.store.ReadCurrentCatalogue()
+	cat, _ := s.assessmentCatalogue(a)
 	var phases []dsovs.Phase
 	if cat != nil {
 		phases = dsovs.ParsePhases(cat.Body)
