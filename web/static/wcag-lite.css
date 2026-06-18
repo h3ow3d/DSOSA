@@ -283,20 +283,29 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .phase-section { margin-bottom: 2rem; }
 .phase-title { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--border); }
 
-.control-row {
+.wcag-control-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .control-header { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.25rem; flex-wrap: wrap; }
 .control-id { font-size: 0.8rem; font-family: monospace; background: var(--bg); padding: 0.1rem 0.35rem; border-radius: 4px; }
-.control-title { font-size: 0.95rem; font-weight: 600; }
+.control-title { font-size: 1rem; font-weight: 700; margin: 0; }
 .doc-link { font-size: 0.8rem; color: var(--blue); text-decoration: none; }
 .doc-link:hover { text-decoration: underline; }
 .control-summary { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 0.5rem; }
+
+.wcag-progress-summary {
+  display: inline-block;
+  border: 2px solid var(--text);
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-weight: 700;
+  background: #fff;
+}
 
 .level-details { font-size: 0.8rem; margin-bottom: 0.5rem; }
 .level-details summary { cursor: pointer; color: var(--blue); font-size: 0.8rem; }
@@ -305,10 +314,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .level-defs dd { margin: 0; }
 
 .score-fields {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: block;
   margin-bottom: 0.5rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -320,20 +326,67 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   font-weight: 600;
   padding: 0 0.35rem;
 }
-.score-label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; font-weight: 500; }
+.score-label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; font-weight: 500; margin-right: 0.75rem; margin-bottom: 0.5rem; }
 .score-label select { font-size: 0.85rem; padding: 0.3rem 0.5rem; min-width: 80px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
 .na-label { flex-direction: row; align-items: center; gap: 0.4rem; }
+
+.wcag-score-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wcag-score-option {
+  position: relative;
+}
+
+.wcag-score-option__input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+}
+
+.wcag-score-option__label {
+  display: inline-block;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #fff;
+  cursor: pointer;
+}
+
+.wcag-score-option__input:checked + .wcag-score-option__label {
+  border-color: #000;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.wcag-score-option__input:focus-visible + .wcag-score-option__label {
+  outline: 3px solid #ffbf47;
+  outline-offset: 2px;
+}
 
 .note-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .note-label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; font-weight: 500; }
 .note-label textarea { font-size: 0.8rem; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; resize: vertical; }
 
-.sticky-save {
+.wcag-sticky-actions {
   position: sticky;
   bottom: 1rem;
   text-align: center;
   padding: 0.75rem;
   z-index: 50;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+@media (max-width: 700px) {
+  .note-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .save-status {

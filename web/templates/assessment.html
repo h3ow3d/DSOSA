@@ -13,8 +13,12 @@
     {{if .Assessment.AssessmentDate}}<span><strong>Date:</strong> {{.Assessment.AssessmentDate}}</span>{{end}}
     {{if .Assessment.StandardVersion}}<span class="tag">DSOVS {{.Assessment.StandardVersion}}</span>{{end}}
     {{if .Assessment.Scope}}<span><strong>Scope:</strong> {{.Assessment.Scope}}</span>{{end}}
-    <span class="tag{{if .ScoreCount}} tag-ok{{end}}">{{.ScoreCount}} / {{.ControlCount}} scored</span>
+    <span class="wcag-progress-summary">{{.ScoreCount}} of {{.ControlCount}} scored</span>
   </div>
+
+  {{if .SaveMessage}}
+  <div class="alert alert-ok" role="status">{{.SaveMessage}}</div>
+  {{end}}
 
   {{if not .HasCatalogue}}
   <div class="alert alert-warn">No catalogue synced. <a href="/dashboard">Sync the catalogue</a> to score controls.</div>
@@ -22,16 +26,27 @@
   <div class="alert alert-warn">Catalogue loaded but no phases could be parsed. Try re-syncing.</div>
   {{else}}
 
+  <nav aria-label="Assessment phases" class="card">
+    <strong>Jump to phase:</strong>
+    {{range .Phases}}<a class="btn btn-ghost btn-sm" href="#phase-{{.Phase.ID}}">{{.Phase.Name}}</a>{{end}}
+  </nav>
+
   <form method="post" action="/assessments/{{.Assessment.ID}}/scores">
     {{range .Phases}}
-    <section class="phase-section">
+    {{$phaseName := .Phase.Name}}
+    <section class="phase-section" id="phase-{{.Phase.ID}}">
       <h3 class="phase-title">{{.Phase.Name}}</h3>
       {{range .Controls}}
-      <div class="control-row" data-cid="{{.Control.ID}}">
+      {{$cid := .Control.ID}}
+      {{$sc := .Score}}
+      <article class="wcag-control-card" data-cid="{{$cid}}">
         <div class="control-header">
-          <span class="control-id">{{.Control.ID}}</span>
-          <strong class="control-title">{{.Control.Title}}</strong>
-          {{if .Control.DocURL}}<a href="{{.Control.DocURL}}" target="_blank" rel="noopener" class="doc-link" title="View documentation">↗</a>{{end}}
+          <span class="control-id">{{$cid}}</span>
+          <h4 class="control-title" id="control-{{$cid}}">{{.Control.Title}}</h4>
+          <span class="tag">{{$phaseName}}</span>
+          {{if .Control.Type}}<span class="tag">{{.Control.Type}}</span>{{end}}
+          {{if .Control.Status}}<span class="tag">{{.Control.Status}}</span>{{end}}
+          {{if .Control.DocURL}}<a href="{{.Control.DocURL}}" target="_blank" rel="noopener" class="doc-link">OWASP documentation</a>{{end}}
         </div>
         {{if .Control.Summary}}<p class="control-summary">{{.Control.Summary}}</p>{{end}}
 
@@ -47,58 +62,99 @@
         </details>
         {{end}}
 
+        <input type="hidden" name="control_id" value="{{$cid}}">
+
         <fieldset class="score-fields">
-          <legend>Maturity scoring</legend>
-          <p class="hint-text">Set current and target levels, then mark N/A if the control does not apply.</p>
-          {{$sc := .Score}}
-          <input type="hidden" name="control_id" value="{{.Control.ID}}">
-          <label class="score-label">
-            Current level
-            <select name="current_level[{{.Control.ID}}]" class="current-select">
-              <option value="">—</option>
-              {{range $.Levels}}<option value="{{.}}"{{if eqIntPtr $sc.CurrentLevel .}} selected{{end}}>{{.}}</option>{{end}}
-            </select>
+          <legend>Current maturity score</legend>
+          <div class="wcag-score-options" role="radiogroup" aria-label="Current maturity score for {{$cid}}">
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="current-{{$cid}}-unset" type="radio" name="current_level[{{$cid}}]" value=""{{if not $sc.CurrentLevel}} checked{{end}}>
+              <label class="wcag-score-option__label" for="current-{{$cid}}-unset">Not set</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="current-{{$cid}}-0" type="radio" name="current_level[{{$cid}}]" value="0"{{if eqIntPtr $sc.CurrentLevel 0}} checked{{end}}>
+              <label class="wcag-score-option__label" for="current-{{$cid}}-0">0 Initial</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="current-{{$cid}}-1" type="radio" name="current_level[{{$cid}}]" value="1"{{if eqIntPtr $sc.CurrentLevel 1}} checked{{end}}>
+              <label class="wcag-score-option__label" for="current-{{$cid}}-1">1 Basic</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="current-{{$cid}}-2" type="radio" name="current_level[{{$cid}}]" value="2"{{if eqIntPtr $sc.CurrentLevel 2}} checked{{end}}>
+              <label class="wcag-score-option__label" for="current-{{$cid}}-2">2 Managed</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="current-{{$cid}}-3" type="radio" name="current_level[{{$cid}}]" value="3"{{if eqIntPtr $sc.CurrentLevel 3}} checked{{end}}>
+              <label class="wcag-score-option__label" for="current-{{$cid}}-3">3 Optimised</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="score-fields">
+          <legend>Target maturity score</legend>
+          <p class="hint-text">If not set, reporting assumes target level 2.</p>
+          <div class="wcag-score-options" role="radiogroup" aria-label="Target maturity score for {{$cid}}">
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="target-{{$cid}}-unset" type="radio" name="target_level[{{$cid}}]" value=""{{if not $sc.TargetLevel}} checked{{end}}>
+              <label class="wcag-score-option__label" for="target-{{$cid}}-unset">Not set</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="target-{{$cid}}-0" type="radio" name="target_level[{{$cid}}]" value="0"{{if eqIntPtr $sc.TargetLevel 0}} checked{{end}}>
+              <label class="wcag-score-option__label" for="target-{{$cid}}-0">0</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="target-{{$cid}}-1" type="radio" name="target_level[{{$cid}}]" value="1"{{if eqIntPtr $sc.TargetLevel 1}} checked{{end}}>
+              <label class="wcag-score-option__label" for="target-{{$cid}}-1">1</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="target-{{$cid}}-2" type="radio" name="target_level[{{$cid}}]" value="2"{{if eqIntPtr $sc.TargetLevel 2}} checked{{end}}>
+              <label class="wcag-score-option__label" for="target-{{$cid}}-2">2</label>
+            </div>
+            <div class="wcag-score-option">
+              <input class="wcag-score-option__input" id="target-{{$cid}}-3" type="radio" name="target_level[{{$cid}}]" value="3"{{if eqIntPtr $sc.TargetLevel 3}} checked{{end}}>
+              <label class="wcag-score-option__label" for="target-{{$cid}}-3">3</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="score-fields">
+          <label class="score-label na-label" for="not-applicable-{{$cid}}">
+            <input id="not-applicable-{{$cid}}" type="checkbox" name="not_applicable[{{$cid}}]" class="na-check"{{if $sc.NotApplicable}} checked{{end}}>
+            Not applicable
           </label>
-          <label class="score-label">
-            Target level
-            <select name="target_level[{{.Control.ID}}]" class="target-select">
-              <option value="">—</option>
-              {{range $.Levels}}<option value="{{.}}"{{if eqIntPtr $sc.TargetLevel .}} selected{{end}}>{{.}}</option>{{end}}
-            </select>
-          </label>
-          <label class="score-label na-label">
-            <input type="checkbox" name="not_applicable[{{.Control.ID}}]" class="na-check"{{if $sc.NotApplicable}} checked{{end}}> N/A
-          </label>
-          <label class="score-label">
+          <label class="score-label" for="priority-{{$cid}}">
             Priority
-            <select name="priority[{{.Control.ID}}]" class="priority-select">
-              {{range $.Priorities}}<option value="{{.}}"{{if eq . $sc.Priority}} selected{{end}}>{{if .}}{{.}}{{else}}—{{end}}</option>{{end}}
+            <select id="priority-{{$cid}}" name="priority[{{$cid}}]" class="priority-select">
+              {{range $.Priorities}}<option value="{{.}}"{{if eq . $sc.Priority}} selected{{end}}>{{if .}}{{.}}{{else}}Not set{{end}}</option>{{end}}
             </select>
           </label>
-          <label class="score-label">
+          <label class="score-label" for="confidence-{{$cid}}">
             Confidence
-            <select name="confidence[{{.Control.ID}}]" class="confidence-select">
-              {{range $.Confidences}}<option value="{{.}}"{{if eq . $sc.Confidence}} selected{{end}}>{{if .}}{{.}}{{else}}—{{end}}</option>{{end}}
+            <select id="confidence-{{$cid}}" name="confidence[{{$cid}}]" class="confidence-select">
+              {{range $.Confidences}}<option value="{{.}}"{{if eq . $sc.Confidence}} selected{{end}}>{{if .}}{{.}}{{else}}Not set{{end}}</option>{{end}}
             </select>
           </label>
         </fieldset>
+
         <div class="note-fields">
-          <label class="note-label">
-            Evidence
-            <textarea name="evidence_notes[{{.Control.ID}}]" class="evidence-area" rows="2" placeholder="Evidence for current score…">{{$sc.EvidenceNotes}}</textarea>
+          <label class="note-label" for="evidence-notes-{{$cid}}">
+            Evidence notes
+            <span class="hint-text">Add links, observations, or evidence that justify the selected score. Do not paste secrets or credentials.</span>
+            <textarea id="evidence-notes-{{$cid}}" name="evidence_notes[{{$cid}}]" class="evidence-area" rows="3">{{$sc.EvidenceNotes}}</textarea>
           </label>
-          <label class="note-label">
+          <label class="note-label" for="action-notes-{{$cid}}">
             Action notes
-            <textarea name="action_notes[{{.Control.ID}}]" class="action-area" rows="2" placeholder="Actions to reach target…">{{$sc.ActionNotes}}</textarea>
+            <span class="hint-text">Describe what should change to reach the target maturity.</span>
+            <textarea id="action-notes-{{$cid}}" name="action_notes[{{$cid}}]" class="action-area" rows="3">{{$sc.ActionNotes}}</textarea>
           </label>
         </div>
-      </div>
+      </article>
       {{end}}
     </section>
     {{end}}
 
-    <div class="sticky-save">
-      <button type="submit" class="btn btn-lg">💾 Save All Scores</button>
+    <div class="wcag-sticky-actions">
+      <button type="submit" class="btn btn-lg">Save all scores</button>
     </div>
   </form>
 

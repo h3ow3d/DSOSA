@@ -97,10 +97,10 @@ func TestSavedScoresReloadOnAssessmentPage(t *testing.T) {
 	}
 
 	page := getPageBody(t, s, "/assessments/"+assessmentID)
-	if !strings.Contains(page, `name="current_level[C-1]"`) || !strings.Contains(page, `value="0" selected`) {
+	if !strings.Contains(page, `name="current_level[C-1]"`) || !strings.Contains(page, `id="current-C-1-0"`) || !strings.Contains(page, `id="current-C-1-0" type="radio" name="current_level[C-1]" value="0" checked`) {
 		t.Fatal("assessment page did not reload saved current level")
 	}
-	if !strings.Contains(page, `name="target_level[C-1]"`) || !strings.Contains(page, `value="3" selected`) {
+	if !strings.Contains(page, `name="target_level[C-1]"`) || !strings.Contains(page, `id="target-C-1-3" type="radio" name="target_level[C-1]" value="3" checked`) {
 		t.Fatal("assessment page did not reload saved target level")
 	}
 	if !strings.Contains(page, "Evidence A") {
@@ -165,6 +165,59 @@ func TestResultsUseSavedScores(t *testing.T) {
 	} {
 		if !strings.Contains(results, want) {
 			t.Fatalf("results page missing %q", want)
+		}
+	}
+}
+
+func TestAssessmentPageRendersControlScoringCardFields(t *testing.T) {
+	s := newTestServer(t)
+	projectID := seedProject(t, s)
+	assessmentID := seedAssessment(t, s, projectID)
+
+	page := getPageBody(t, s, "/assessments/"+assessmentID)
+	for _, want := range []string{
+		`class="wcag-control-card"`,
+		`name="current_level[C-1]"`,
+		`name="target_level[C-1]"`,
+		`name="evidence_notes[C-1]"`,
+		`name="action_notes[C-1]"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("assessment page missing %q", want)
+		}
+	}
+}
+
+func TestReportIncludesSavedControlData(t *testing.T) {
+	s := newTestServer(t)
+	projectID := seedProject(t, s)
+	assessmentID := seedAssessment(t, s, projectID)
+
+	form := url.Values{}
+	form.Add("control_id", "C-1")
+	form.Set("current_level[C-1]", "1")
+	form.Set("target_level[C-1]", "2")
+	form.Set("evidence_notes[C-1]", "Evidence for report")
+	form.Set("action_notes[C-1]", "Action for report")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/assessments/"+assessmentID+"/scores", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	s.http.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST scores: got %d want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	report := getPageBody(t, s, "/assessments/"+assessmentID+"/report")
+	for _, want := range []string{
+		"<code>C-1</code>",
+		"Evidence for report",
+		"Action for report",
+		"<td>1</td>",
+		"<td>2</td>",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report page missing %q", want)
 		}
 	}
 }
