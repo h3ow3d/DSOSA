@@ -337,30 +337,38 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 }
 
 .wcag-score-option {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  background: #fff;
 }
 
 .wcag-score-option__input {
-  position: absolute;
-  opacity: 0;
-  inset: 0;
+  position: static;
+  opacity: 1;
+  inset: auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
 }
 
 .wcag-score-option__label {
-  display: inline-block;
-  border: 2px solid var(--border);
-  border-radius: 6px;
-  padding: 0.35rem 0.55rem;
+  display: inline;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
   font-size: 0.85rem;
-  font-weight: 600;
-  background: #fff;
+  font-weight: 500;
+  background: transparent;
   cursor: pointer;
 }
 
 .wcag-score-option__input:checked + .wcag-score-option__label {
-  border-color: #000;
   font-weight: 700;
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .wcag-score-option__input:focus-visible + .wcag-score-option__label {

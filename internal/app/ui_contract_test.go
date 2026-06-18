@@ -243,8 +243,8 @@ func seedAssessment(t *testing.T, s *Server, projectID string) string {
 					"name": "Plan",
 					"controls": []any{
 						map[string]any{
-							"id":      "C-1",
-							"title":   "Control One",
+							"id":      "ORG-001",
+							"title":   "Risk Assessment",
 							"summary": "Control summary",
 							"level_0": "not started",
 							"level_1": "basic",
@@ -269,7 +269,7 @@ func seedAssessment(t *testing.T, s *Server, projectID string) string {
 		UpdatedAt:      now,
 		Scores: []storage.ScoreEntry{
 			{
-				ControlID:     "C-1",
+				ControlID:     "ORG-001",
 				CurrentLevel:  ptrInt(1),
 				TargetLevel:   ptrInt(2),
 				EvidenceNotes: "Evidence",
