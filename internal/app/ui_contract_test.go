@@ -115,6 +115,10 @@ func TestNoExternalDependencyGuard(t *testing.T) {
 	forbiddenFiles := map[string]struct{}{
 		"package.json": {},
 	}
+
+	// Forbidden terms are checked only in application source directories.
+	// Policy/documentation files (e.g. DEPENDENCY_POLICY.md, SUPPLY_CHAIN.md)
+	// intentionally reference these terms and are excluded from the scan.
 	forbiddenTerms := []string{
 		"cdn.",
 		"unpkg",
@@ -127,6 +131,10 @@ func TestNoExternalDependencyGuard(t *testing.T) {
 		"fonts.gstatic.com",
 	}
 
+	// Directories that must not contain CDN or framework references.
+	appSourceDirs := []string{"web", "internal", "cmd"}
+
+	// Walk entire repo to catch forbidden files (e.g. package.json).
 	err := filepath.WalkDir(repoRoot, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -140,7 +148,6 @@ func TestNoExternalDependencyGuard(t *testing.T) {
 			}
 			return nil
 		}
-
 		rel, err := filepath.Rel(repoRoot, path)
 		if err != nil {
 			return err
@@ -148,25 +155,48 @@ func TestNoExternalDependencyGuard(t *testing.T) {
 		if _, bad := forbiddenFiles[d.Name()]; bad {
 			t.Fatalf("forbidden frontend dependency file found: %s", rel)
 		}
-
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext != ".html" && ext != ".css" && ext != ".js" && ext != ".md" {
-			return nil
-		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		content := strings.ToLower(string(b))
-		for _, term := range forbiddenTerms {
-			if strings.Contains(content, term) {
-				t.Fatalf("forbidden frontend dependency marker %q found in %s", term, rel)
-			}
-		}
 		return nil
 	})
 	if err != nil && err != fs.ErrPermission {
 		t.Fatal(err)
+	}
+
+	// Walk only application source directories for forbidden term scanning.
+	for _, dir := range appSourceDirs {
+		dirPath := filepath.Join(repoRoot, dir)
+		err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				if os.IsNotExist(walkErr) {
+					return nil
+				}
+				return walkErr
+			}
+			if d.IsDir() {
+				return nil
+			}
+			ext := strings.ToLower(filepath.Ext(path))
+			if ext != ".html" && ext != ".css" && ext != ".js" {
+				return nil
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			rel, err := filepath.Rel(repoRoot, path)
+			if err != nil {
+				return err
+			}
+			content := strings.ToLower(string(b))
+			for _, term := range forbiddenTerms {
+				if strings.Contains(content, term) {
+					t.Fatalf("forbidden frontend dependency marker %q found in %s", term, rel)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

@@ -6,6 +6,117 @@ on:
   pull_request:
 
 jobs:
+  dependency-guard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: go test
+        run: go test ./...
+
+      - name: List modules
+        run: go list -m all
+
+      - name: Verify no third-party Go modules
+        run: |
+          module_count=$(go list -m all | wc -l)
+          if [ "$module_count" -ne 1 ]; then
+            echo "ERROR: go.mod contains third-party modules."
+            echo "Every new runtime dependency requires an approved decision"
+            echo "record in docs/dependency-decisions/ (see DEPENDENCY_POLICY.md)."
+            go list -m all
+            exit 1
+          fi
+          echo "OK: only root module present."
+
+      - name: Verify no package.json
+        run: |
+          if [ -f package.json ]; then
+            echo "ERROR: package.json found. Node/npm dependencies are not allowed."
+            exit 1
+          fi
+          echo "OK: no package.json"
+
+      - name: Verify no lock files
+        run: |
+          for f in package-lock.json pnpm-lock.yaml yarn.lock; do
+            if [ -f "$f" ]; then
+              echo "ERROR: $f found. Node lock files are not allowed."
+              exit 1
+            fi
+          done
+          echo "OK: no Node lock files"
+
+      - name: Verify no node_modules
+        run: |
+          if [ -d node_modules ]; then
+            echo "ERROR: node_modules directory found."
+            exit 1
+          fi
+          echo "OK: no node_modules"
+
+      - name: Verify no CDN or forbidden framework references in app sources
+        run: |
+          forbidden_terms=(
+            "cdn.jsdelivr"
+            "unpkg"
+            "cdnjs"
+            "bootstrap"
+            "tailwind"
+            "fonts.googleapis"
+            "fontawesome"
+          )
+          # Check only application source directories, not policy/docs files
+          search_dirs="web/templates web/static internal cmd"
+          found=0
+          for term in "${forbidden_terms[@]}"; do
+            matches=$(grep -ril "$term" $search_dirs 2>/dev/null || true)
+            if [ -n "$matches" ]; then
+              echo "ERROR: Forbidden term '$term' found in:"
+              echo "$matches"
+              found=1
+            fi
+          done
+          if [ "$found" -ne 0 ]; then
+            echo ""
+            echo "CDN references and the listed frontend frameworks are forbidden"
+            echo "in application source. See DEPENDENCY_POLICY.md."
+            exit 1
+          fi
+          echo "OK: no CDN or forbidden framework references in app sources"
+
+      - name: Verify no frontend framework imports in app sources
+        run: |
+          framework_terms=(
+            "react"
+            "vue"
+            "angular"
+            "govuk-frontend"
+          )
+          search_dirs="web/templates web/static internal cmd"
+          found=0
+          for term in "${framework_terms[@]}"; do
+            # Match as a standalone word/path segment to avoid false positives
+            matches=$(grep -ril "\b${term}\b" $search_dirs 2>/dev/null || true)
+            if [ -n "$matches" ]; then
+              echo "ERROR: Forbidden framework term '$term' found in:"
+              echo "$matches"
+              found=1
+            fi
+          done
+          if [ "$found" -ne 0 ]; then
+            echo ""
+            echo "Frontend framework references are forbidden in application source."
+            echo "See DEPENDENCY_POLICY.md."
+            exit 1
+          fi
+          echo "OK: no frontend framework references in app sources"
+
   build-and-test:
     runs-on: ubuntu-latest
 
